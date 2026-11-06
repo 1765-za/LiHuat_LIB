@@ -8,7 +8,7 @@ namespace LihuatLib.Mechanisms
     internal static class GenericBodyPublication
     {
         [StructLayout(LayoutKind.Sequential)]
-        private struct Snapshot { internal uint Publications, Compilations, Rejected, Registered; }
+        private struct Snapshot { internal uint Publications, Compilations, Rejected, Registered, Intact; }
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int SetBody(ulong authority, IntPtr owner, IntPtr method, byte[] code, uint size, byte[] previous, uint previousSize);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ReleaseBody(ulong authority, IntPtr method);
@@ -35,7 +35,7 @@ namespace LihuatLib.Mechanisms
             if (read == null || !sources.ContainsKey(method)
                 || read(method.MethodHandle.Value, out Snapshot result, (uint)Marshal.SizeOf<Snapshot>()) != 1) return default;
             return new NativeIlStatus(new NativeRuntime.Snapshot { State = (uint)(result.Registered == 1 ? NativeIlState.Applied : NativeIlState.Missing),
-                Publications = result.Publications, Sites = result.Compilations, Intact = result.Registered });
+                Publications = result.Publications, Sites = result.Compilations, Intact = result.Intact });
         }
 
         internal static void Protect(MethodInfo method)

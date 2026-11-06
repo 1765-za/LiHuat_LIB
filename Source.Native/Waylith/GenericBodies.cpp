@@ -2,6 +2,8 @@
 #include "NativeAuthority.h"
 #include "NativeMemoryOwnership.h"
 #include "EntryWriteIndex.h"
+#include "ClrSuspension.h"
+#include "ClrProfilerRequests.h"
 #include <windows.h>
 #include <unordered_map>
 #include <vector>
@@ -11,8 +13,17 @@
 
 namespace {
 struct CodeRange { const void* address; uint32_t length; };
+struct Definition {
+    uintptr_t module; uint32_t token;
+    bool operator==(const Definition& other) const { return module == other.module && token == other.token; }
+};
+struct DefinitionHash {
+    size_t operator()(const Definition& value) const { return std::hash<uintptr_t>{}(value.module) ^ (static_cast<size_t>(value.token) << 1); }
+};
 struct Body {
     void* owner;
+    uintptr_t module;
+    uint32_t token;
     std::vector<uint8_t> current, previous;
     std::vector<CodeRange> code;
     uint32_t publications = 0, compilations = 0, rejected = 0;
@@ -20,6 +31,7 @@ struct Body {
 SRWLOCK gate = SRWLOCK_INIT;
 std::unordered_map<void*, Body> bodies;
 std::unordered_map<void*, std::vector<void*>> owners;
+std::unordered_map<Definition, uint32_t, DefinitionHash> definitions;
 std::atomic<bool> active{false};
 lihuat::EntryWriteIndex writes;
 size_t codeCount = 0;
@@ -50,6 +62,7 @@ void IndexWrites() {
         for (const auto& code : body.code) writes.Add(code.address, code.length);
     }
     for (const auto& owner : owners) writes.Add(owner.second.data(), owner.second.capacity() * sizeof(void*));
+    for (const auto& definition : definitions) writes.Add(&definition, sizeof(definition));
     writes.Seal();
 }
 }
@@ -63,21 +76,28 @@ API int __cdecl LihuatNative_GenericBody(uint64_t authority, void* owner, void* 
     try {
         Body next{};
         next.owner = owner;
+        if (!lihuat::ProfilerMethodIdentity(method, next.module, next.token)) return -3;
         next.current.assign(current, current + length);
         if (previousLength) next.previous.assign(previous, previous + previousLength);
         Exclusive lock;
-        writes.Reserve(bodies.size() * 6 + codeCount + 8);
+        writes.Reserve(bodies.size() * 7 + codeCount + 9);
         auto old = bodies.find(method);
         if (old != bodies.end()) {
             if (old->second.owner != owner) return -2;
+            if (old->second.module != next.module || old->second.token != next.token) return -3;
             next.code = std::move(old->second.code);
             next.publications = old->second.publications;
             next.compilations = old->second.compilations;
             next.rejected = old->second.rejected;
         } else {
             auto& group = owners[owner];
-            group.reserve(group.size() + 1);
-            bodies.emplace(method, Body{});
+            try {
+                group.reserve(group.size() + 1);
+                auto indexed = definitions.try_emplace(Definition{next.module, next.token}, 0);
+                try { bodies.emplace(method, Body{}); }
+                catch (...) { if (indexed.second) definitions.erase(indexed.first); throw; }
+                ++indexed.first->second;
+            } catch (...) { if (group.empty()) owners.erase(owner); throw; }
             group.push_back(method);
         }
         ++next.publications;
@@ -98,25 +118,35 @@ API int __cdecl LihuatNative_GenericRelease(uint64_t authority, void* method) {
     keys.erase(std::remove(keys.begin(), keys.end(), method), keys.end());
     if (keys.empty()) owners.erase(group);
     codeCount -= found->second.code.size();
+    auto definition = definitions.find(Definition{found->second.module, found->second.token});
+    if (!--definition->second) definitions.erase(definition);
     bodies.erase(found);
     IndexWrites();
     active.store(!bodies.empty(), std::memory_order_release);
     return 1;
 }
 
-struct BodyStatus { uint32_t publications, compilations, rejected, registered; };
+struct BodyStatus { uint32_t publications, compilations, rejected, registered, intact; };
 API int __cdecl LihuatNative_GenericStatus(void* method, BodyStatus* output, uint32_t size) {
     if (size != sizeof(BodyStatus) || !lihuat::NativeOutputAllowed(output, size)) return 0;
     Shared lock;
     auto found = bodies.find(method);
     if (found == bodies.end()) { *output = {}; return 1; }
     const auto& body = found->second;
-    *output = {body.publications, body.compilations, body.rejected, 1};
+    *output = {body.publications, body.compilations, body.rejected, 1, lihuat::ProfilerRequestsIntact() ? 1u : 0u};
     return 1;
 }
 
 namespace lihuat {
 bool HasGenericBodies() { return active.load(std::memory_order_acquire); }
+bool GenericProfilerMutationAllowed(uint32_t count, const uintptr_t* modules, const uint32_t* methods) {
+    if (!HasGenericBodies()) return true;
+    Shared lock;
+    for (uint32_t i = 0; i != count; ++i) {
+        if (definitions.find(Definition{modules[i], methods[i]}) != definitions.end()) return false;
+    }
+    return true;
+}
 bool GenericInlineBlocked(void* context, void* method) {
     if (!HasGenericBodies()) return false;
     Shared lock;
@@ -139,7 +169,7 @@ bool GenericBodyCompiled(void* context, void* method, void* code, uint32_t size)
     if (!body) return true;
     try {
         if (std::none_of(body->code.begin(), body->code.end(), [code](const CodeRange& item) { return item.address == code; })) {
-            writes.Reserve(bodies.size() * 6 + codeCount + 2);
+            writes.Reserve(bodies.size() * 7 + codeCount + 2);
             const CodeRange* old = body->code.data();
             body->code.push_back({code, size});
             ++codeCount;

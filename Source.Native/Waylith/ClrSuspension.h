@@ -4,6 +4,7 @@
 namespace lihuat {
 bool BeginCodeWrite();
 bool CodeWriteActive();
+bool ProfilerMethodIdentity(void* method, uintptr_t& module, uint32_t& token);
 void EndCodeWrite();
 class CodeWriteScope {
     bool entered;

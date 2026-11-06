@@ -7,6 +7,7 @@
 #include "NativeAuthority.h"
 #include "NativeMemoryOwnership.h"
 #include "GenericBodies.h"
+#include "ClrProfilerRequests.h"
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -123,7 +124,7 @@ API int __cdecl LihuatNative_Overlaps(void* address, uint32_t length) {
     uintptr_t start = reinterpret_cast<uintptr_t>(address);
     if (!start || !length || start > UINTPTR_MAX - length) return 0;
     if (lihuat::NativeMemoryOverlaps(address, length) || lihuat::CompilationSlotOverlaps(address, length)
-        || lihuat::GenericBodyOverlaps(address, length)) return 1;
+        || lihuat::GenericBodyOverlaps(address, length) || lihuat::ProfilerRequestsOverlaps(address, length)) return 1;
     Shared lock;
     return writeEntries.OwnsStorage(address, length) || writeEntries.Overlaps(address, length) ? 1 : 0;
 }
