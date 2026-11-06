@@ -9,5 +9,4 @@ bool GenericInlineBlocked(void* context, void* method);
 bool GenericBodyAllowed(void* context, const MethodBodyInput& method);
 bool GenericBodyOverlaps(const void* address, size_t length);
 bool GenericBodyCompiled(void* context, void* method, void* code, uint32_t size);
-bool GenericProfilerMutationAllowed(uint32_t count, const uintptr_t* modules, const uint32_t* methods);
 }

@@ -135,16 +135,6 @@ void lihuat::EndCodeWrite() {
 }
 bool lihuat::CodeWriteActive() { return depth != 0; }
 
-bool lihuat::ProfilerMethodIdentity(void* method, uintptr_t& module, uint32_t& token) {
-    if (!depth) AcquireSRWLockShared(&writers);
-    auto info = information.load(std::memory_order_acquire);
-    ClassID owner = 0; ModuleID moduleId = 0; mdToken methodToken = 0;
-    HRESULT hr = info ? info->GetFunctionInfo(reinterpret_cast<FunctionID>(method), &owner, &moduleId, &methodToken) : E_UNEXPECTED;
-    if (!depth) ReleaseSRWLockShared(&writers);
-    module = moduleId; token = methodToken;
-    return SUCCEEDED(hr) && moduleId && TypeFromToken(methodToken) == mdtMethodDef;
-}
-
 extern "C" __declspec(dllexport) int __cdecl LihuatNative_SuspensionReady() {
     return information.load(std::memory_order_acquire) != nullptr;
 }

@@ -4,13 +4,8 @@
 #include <corprof.h>
 #include <atomic>
 #include "ClrProfilerRequests.h"
-#include "GenericBodies.h"
 
 namespace {
-using Rejit = HRESULT(STDMETHODCALLTYPE*)(void*, ULONG, ModuleID*, mdMethodDef*);
-using Revert = HRESULT(STDMETHODCALLTYPE*)(void*, ULONG, ModuleID*, mdMethodDef*, HRESULT*);
-using Inliners = HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, ULONG, ModuleID*, mdMethodDef*);
-using SetBody = HRESULT(STDMETHODCALLTYPE*)(void*, ModuleID, mdMethodDef, LPCBYTE);
 struct ProfilerInfo10Layout {
     ICorProfilerInfo8Vtbl base;
     void *nativeAddresses, *mapping, *codeInfo, *references, *frozen, *loh, *rejitInliners;
@@ -20,25 +15,10 @@ Slot slots[4];
 SRWLOCK installation = SRWLOCK_INIT;
 std::atomic<bool> installed{false};
 
-bool Allowed(ULONG count, ModuleID* modules, mdMethodDef* methods) {
-    return !count || !modules || !methods || lihuat::GenericProfilerMutationAllowed(count, modules, methods);
-}
-HRESULT STDMETHODCALLTYPE RequestRejit(void* self, ULONG count, ModuleID* modules, mdMethodDef* methods) {
-    if (!Allowed(count, modules, methods)) return E_ACCESSDENIED;
-    return reinterpret_cast<Rejit>(slots[0].previous)(self, count, modules, methods);
-}
-HRESULT STDMETHODCALLTYPE RequestRevert(void* self, ULONG count, ModuleID* modules, mdMethodDef* methods, HRESULT* status) {
-    if (!Allowed(count, modules, methods)) return E_ACCESSDENIED;
-    return reinterpret_cast<Revert>(slots[1].previous)(self, count, modules, methods, status);
-}
-HRESULT STDMETHODCALLTYPE RequestInliners(void* self, DWORD flags, ULONG count, ModuleID* modules, mdMethodDef* methods) {
-    if (!Allowed(count, modules, methods)) return E_ACCESSDENIED;
-    return reinterpret_cast<Inliners>(slots[2].previous)(self, flags, count, modules, methods);
-}
-HRESULT STDMETHODCALLTYPE SetIlBody(void* self, ModuleID module, mdMethodDef method, LPCBYTE body) {
-    if (!Allowed(1, &module, &method)) return E_ACCESSDENIED;
-    return reinterpret_cast<SetBody>(slots[3].previous)(self, module, method, body);
-}
+HRESULT STDMETHODCALLTYPE RequestRejit(void*, ULONG, ModuleID*, mdMethodDef*) { return E_ACCESSDENIED; }
+HRESULT STDMETHODCALLTYPE RequestRevert(void*, ULONG, ModuleID*, mdMethodDef*, HRESULT*) { return E_ACCESSDENIED; }
+HRESULT STDMETHODCALLTYPE RequestInliners(void*, DWORD, ULONG, ModuleID*, mdMethodDef*) { return E_ACCESSDENIED; }
+HRESULT STDMETHODCALLTYPE SetIlBody(void*, ModuleID, mdMethodDef, LPCBYTE) { return E_ACCESSDENIED; }
 void* Read(const Slot& slot) { return *static_cast<void* volatile*>(slot.address); }
 bool Exchange(const Slot& slot, void* expected, void* desired) {
     DWORD previous = 0, ignored = 0;
