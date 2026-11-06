@@ -5,8 +5,8 @@ namespace LihuatLib.Core
 {
     internal static class LibraryPreparation
     {
-        internal static bool Required => LibraryCapabilities.NeedsAnalysis
-            || LibraryCapabilities.Has(LibraryCapability.HediffProtection);
+        internal static bool Required => Configuration.HighMechanismPolicy.Scanning && (LibraryCapabilities.NeedsAnalysis
+            || LibraryCapabilities.Has(LibraryCapability.HediffProtection));
         internal static PreparationProgress Progress { get; } = new PreparationProgress();
 
         internal static IEnumerable Prepare()

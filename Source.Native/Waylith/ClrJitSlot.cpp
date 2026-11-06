@@ -1,3 +1,4 @@
+#include "HighMechanisms.h"
 #include <windows.h>
 #include <atomic>
 #include "ClrJitSlot.h"
@@ -69,7 +70,7 @@ bool lihuat::CompilationSlotActive() {
 
 bool lihuat::RepairCompilationSlot() {
     if (CompilationSlotActive()) return true;
-    if (!prepared.load(std::memory_order_acquire)) return false;
+    if (!prepared.load(std::memory_order_acquire) || !NativeProtectionEnabled()) return false;
     Exclusive lock;
     // A later hook may call us. Rebasing the downstream pointer to that hook would make a cycle.
     return Publish();

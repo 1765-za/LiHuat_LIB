@@ -21,6 +21,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             NativeIlGuards.Guard(
                 AccessTools.Method(typeof(Marshal), nameof(Marshal.Copy), new[] { typeof(byte[]), typeof(int), typeof(IntPtr), typeof(int) }),
                 AccessTools.Method(typeof(ExecutableWriteProtection), nameof(RequireWrite)), 2, 3);

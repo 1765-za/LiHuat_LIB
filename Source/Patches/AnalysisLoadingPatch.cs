@@ -13,7 +13,7 @@ namespace LihuatLib.Patches
 
         private static void Prefix(bool hotReload)
         {
-            if (hotReload) return;
+            if (hotReload || !Configuration.HighMechanismPolicy.Scanning) return;
             try { StarBlood.LifeAnalysisPreparation.BeginLoading(); }
             catch (Exception error) { Log.Warning("[LihuatLib.Analysis] Loading preparation unavailable: " + error); }
         }

@@ -13,6 +13,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             Type field = typeof(FieldInfo).Assembly.GetType("System.Reflection.RtFieldInfo", true);
             MethodInfo gate = typeof(FieldWriteProtection).GetMethod(nameof(Allows), BindingFlags.NonPublic | BindingFlags.Static);
             NativeIlGuards.Guard(field.GetMethod("SetValue", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly), gate, 0, 1, 2);
@@ -21,6 +22,7 @@ namespace LihuatLib.Mechanisms
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Register(MethodInfo handler)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             CodePublicationAuthority.RequireCaller();
             CodePublicationAuthority.RequireBlueprint(handler);
             if (registered.Contains(handler)) return;

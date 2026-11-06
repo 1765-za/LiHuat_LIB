@@ -9,6 +9,7 @@ namespace LihuatLib.Mechanisms
     {
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             HediffListCalls.Prepare();
             OwnedEmissionBoundary.Install();
             NativeIlGuards.Guard(AccessTools.Method(DynamicWriteCatalogue.GeneratorType, nameof(ILGenerator.Emit), new[] { typeof(OpCode), typeof(ConstructorInfo) }),
@@ -49,6 +50,14 @@ namespace LihuatLib.Mechanisms
         }
         private static bool EmitCall(ILGenerator generator, OpCode opcode, MethodInfo method)
         {
+            if (DynamicWriteCatalogue.Ready && !DynamicWriteCatalogue.Building && opcode == OpCodes.Call
+                && DynamicWriteCatalogue.GeneratorType.IsInstanceOfType(generator)
+                && !DynamicWriteCatalogue.For(generator).Trusted
+                && ObjectAddressCalls.Replacement(method) is MethodInfo address)
+            {
+                generator.Emit(OpCodes.Call, address);
+                return false;
+            }
             if (DynamicWriteCatalogue.Ready && !DynamicWriteCatalogue.Building && method != null
                 && (opcode == OpCodes.Call || opcode == OpCodes.Callvirt)
                 && DynamicWriteCatalogue.GeneratorType.IsInstanceOfType(generator)

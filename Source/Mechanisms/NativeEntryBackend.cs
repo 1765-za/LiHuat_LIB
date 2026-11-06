@@ -131,12 +131,12 @@ namespace LihuatLib.Mechanisms
         internal static ulong CompilationNotifications => notifications();
         internal static void Flush(IntPtr key)
         {
-            if (Initialized && flush(authority, key) < 0)
+            if (Configuration.HighMechanismPolicy.NativeProtection && Initialized && flush(authority, key) < 0)
                 throw new InvalidOperationException("CoreCLR JIT slot ownership could not be restored.");
         }
         internal static void EnsureCompilationObserver()
         {
-            if (observe(authority, IntPtr.Zero) != 1) throw new InvalidOperationException("CoreCLR JIT slot ownership could not be restored.");
+            if (Configuration.HighMechanismPolicy.NativeProtection && observe(authority, IntPtr.Zero) != 1) throw new InvalidOperationException("CoreCLR JIT slot ownership could not be restored.");
         }
         internal static IntPtr Code(IntPtr precode) => code(precode);
         internal static bool Overlaps(IntPtr address, int length) => Initialized && length > 0

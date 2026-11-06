@@ -17,6 +17,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void InstallEffects(Type type)
         {
+            if (!Configuration.HighMechanismPolicy.Scanning) return;
             if (complete.Contains(type)) return;
             var reader = new LifeIlReader();
             var effects = new List<MethodInfo>();
@@ -39,6 +40,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install(MethodInfo method)
         {
+            if (!Configuration.HighMechanismPolicy.Scanning) return;
             if (!Eligible(method) || installed.Contains(method)) return;
             NativeInlineCallers.Prepare(new[] { method });
             NativeIlGuards.RegisterTransform(method, typeof(SubjectCallbacks).FullName, NativeIlGuards.GateOrder + 210,

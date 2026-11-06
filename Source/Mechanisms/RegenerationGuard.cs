@@ -34,6 +34,7 @@ namespace LihuatLib.Mechanisms
         internal static bool Active(MethodInfo method) => candidates.TryGetValue(method, out Entry entry) && entry.Active;
         internal static void Discover()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Scanning) return;
             if (!LibraryCapabilities.Has(LibraryCapability.Regeneration)) return;
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -105,6 +106,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static void Update()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Scanning) return;
             if (pending.Count == 0 || !pendingChanged && lastPublication == LifeAnalysisCoordinator.Shared.Published) return;
             pendingChanged = false; lastPublication = LifeAnalysisCoordinator.Shared.Published;
             int count = pending.Count;

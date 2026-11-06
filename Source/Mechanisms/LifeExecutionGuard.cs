@@ -42,6 +42,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Register(IEnumerable<LifeExecutionSite> candidates, object instance = null, Pawn pawn = null)
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             HashSet<MethodBase> changed = null;
             foreach (LifeExecutionSite candidate in candidates)
             {

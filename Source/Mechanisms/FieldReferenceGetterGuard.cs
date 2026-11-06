@@ -27,10 +27,12 @@ namespace LihuatLib.Mechanisms
             byte[] metadata = reader.ReadBody(method);
             if (metadata == null) return;
             bool returned = DynamicWriteCatalogue.AddressResult(method.ReturnType);
-            var code = returned ? null : FieldReferenceConsumer.Read(method, metadata);
+            var code = FieldReferenceConsumer.Read(method, metadata);
             bool reads = code != null && FieldReferenceReads.HasRead(code);
-            if (!returned && !reads && !FieldReferenceConsumer.Required(method, code)) return;
-            if (!reads && (!GeneratedMethodCatalogue.TryGet(method, out var policy, true, true) || !policy.Required)) return;
+            bool addresses = code != null && code.Any(line => line.opcode == OpCodes.Call
+                && line.operand is MethodInfo called && ObjectAddressCalls.Replacement(called) != null);
+            if (!returned && !reads && !addresses && !FieldReferenceConsumer.Required(method, code)) return;
+            if (!reads && !addresses && (!GeneratedMethodCatalogue.TryGet(method, out var policy, true, true) || !policy.Required)) return;
             bool retained = NativeIlGuards.Contains(method);
             try
             {
@@ -56,7 +58,10 @@ namespace LihuatLib.Mechanisms
             var original = (MethodInfo)__originalMethod;
             foreach (CodeInstruction line in code)
             {
-                if ((line.opcode == OpCodes.Ldflda || line.opcode == OpCodes.Ldsflda)
+                if (line.opcode == OpCodes.Call && line.operand is MethodInfo raw
+                    && ObjectAddressCalls.Replacement(raw) is MethodInfo guarded)
+                    line.operand = guarded;
+                else if ((line.opcode == OpCodes.Ldflda || line.opcode == OpCodes.Ldsflda)
                     && line.operand is FieldInfo field && GeneratedMethodCatalogue.Sensitive(field)
                     && (DynamicWriteCatalogue.AddressResult(original.ReturnType)
                         || IndirectFieldMutation.Writes(code, _ => false, address: candidate => ReferenceEquals(candidate, line))))

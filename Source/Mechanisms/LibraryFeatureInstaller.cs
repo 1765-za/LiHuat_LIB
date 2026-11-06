@@ -23,6 +23,7 @@ namespace LihuatLib.Mechanisms
             NativeAdmissionGuards.Install();
             DepartureBoundary.Install();
             WorldTransferBoundary.Install();
+            Integrations.GravshipTransferBoundary.Install();
             LordControlBoundary.Install();
             MapRemovalBoundary.Install();
             ForcedUnspawnBoundary.Install();

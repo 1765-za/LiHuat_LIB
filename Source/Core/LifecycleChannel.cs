@@ -45,6 +45,8 @@ namespace LihuatLib.Core
     }
     public sealed class LifecycleChannel
     {
+        private readonly GenerationAdmission admission;
+        internal LifecycleChannel(GenerationAdmission admission) { this.admission = admission; }
         private readonly OrderedHandlers<LifecycleHandler> handlers = new(h => h.Id, h => h.Order);
         public void Register(LifecycleHandler handler)
         {
@@ -96,18 +98,21 @@ namespace LihuatLib.Core
         public bool AllowsRestore(Pawn pawn)
         {
             if (DeveloperExecution.Active) return true;
+            if (!admission.AllowsRestore(pawn)) return false;
             foreach (LifecycleHandler handler in handlers.Items) if (handler.AllowsRestore?.Invoke(pawn) == false) return false;
             return true;
         }
         public bool AllowsRegistration(Pawn pawn)
         {
             if (DeveloperExecution.Active) return true;
+            if (!admission.AllowsArrival(pawn)) return false;
             foreach (LifecycleHandler handler in handlers.Items) if (handler.AllowsRegistration?.Invoke(pawn) == false) return false;
             return true;
         }
         public bool AllowsGeneration()
         {
             if (DeveloperExecution.Active) return true;
+            if (!admission.AllowsGeneration) return false;
             foreach (LifecycleHandler handler in handlers.Items) if (handler.AllowsGeneration?.Invoke() == false) return false;
             return true;
         }
@@ -123,7 +128,11 @@ namespace LihuatLib.Core
             return true;
         }
         public void Generated(Pawn pawn) { if (!DeveloperExecution.Active) foreach (LifecycleHandler handler in handlers.Items) handler.Generated?.Invoke(pawn); }
-        public void Registered(Pawn pawn) { if (!DeveloperExecution.Active) foreach (LifecycleHandler handler in handlers.Items) handler.Registered?.Invoke(pawn); }
+        public void Registered(Pawn pawn)
+        {
+            admission.Registered(pawn);
+            if (!DeveloperExecution.Active) foreach (LifecycleHandler handler in handlers.Items) handler.Registered?.Invoke(pawn);
+        }
         internal void Kidnapped(Pawn pawn, Faction captor, Map source)
         {
             foreach (LifecycleHandler handler in handlers.Items) handler.Kidnapped?.Invoke(pawn, captor, source);

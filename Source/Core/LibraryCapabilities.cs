@@ -35,7 +35,7 @@ namespace LihuatLib.Core
         public static LibraryCapability Enabled => enabled;
         internal static bool Frozen => frozen;
         public static bool Has(LibraryCapability capability) => (enabled & capability) == capability;
-        internal static bool NeedsAnalysis => (enabled & (LibraryCapability.StarBlood | LibraryCapability.Regeneration | LibraryCapability.Erasure)) != 0;
+        internal static bool NeedsAnalysis => Configuration.HighMechanismPolicy.Scanning && (enabled & (LibraryCapability.StarBlood | LibraryCapability.Regeneration | LibraryCapability.Erasure)) != 0;
 
         internal static LibraryCapability Expand(LibraryCapability capabilities)
         {

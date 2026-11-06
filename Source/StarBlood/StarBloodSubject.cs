@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using LihuatLib.Core;
 using Verse;
 
@@ -26,8 +26,8 @@ namespace LihuatLib.StarBlood
         private readonly Func<int> clock;
         private readonly Func<bool> continuity;
         private bool DeveloperDeath => State.DeveloperDeathPawnId != null && State.DeveloperDeathPawnId == Pawn.ThingID;
-        public bool Enabled => !DeveloperExecution.Active && !State.DeveloperRemovedMarker && !DeveloperDeath && enabled();
-        public bool ContinuityEnabled => !DeveloperExecution.Active && !State.DeveloperRemovedMarker && !DeveloperDeath && continuity();
+        public bool Enabled => Configuration.HighMechanismPolicy.Maintenance && !DeveloperExecution.Active && !State.DeveloperRemovedMarker && !DeveloperDeath && enabled();
+        public bool ContinuityEnabled => Configuration.HighMechanismPolicy.Maintenance && !DeveloperExecution.Active && !State.DeveloperRemovedMarker && !DeveloperDeath && continuity();
         public int Now => clock();
 
         public StarBloodSubject WithDamageThreshold(Func<float> threshold)

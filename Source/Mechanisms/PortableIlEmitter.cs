@@ -65,7 +65,7 @@ namespace LihuatLib.Mechanisms
                 {
                     for (int i = 0; i < locals.Count; i++)
                     {
-                        generator.DeclareLocal(locals[i].LocalType, locals[i].IsPinned);
+                        generator.DeclareLocal(EmittedLocalType(locals[i].LocalType), locals[i].IsPinned);
                     }
                 }
 

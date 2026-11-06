@@ -257,7 +257,7 @@ namespace LihuatLib.Mechanisms
                     case 0x0c: return typeof(float);
                     case 0x0d: return typeof(double);
                     case 0x0e: return typeof(string);
-                    case 0x0f: return ReadType(false).MakePointerType();
+                    case 0x0f: return ReadType(true).MakePointerType();
                     case 0x10: return ReadType(false).MakeByRefType();
                     case 0x11:
                     case 0x12:

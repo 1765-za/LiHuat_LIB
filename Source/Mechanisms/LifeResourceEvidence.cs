@@ -23,7 +23,7 @@ namespace LihuatLib.Mechanisms
         }
         private LifeAnalysisResult ObserveType(Type type)
         {
-            if (!IsCustom(type)) return null;
+            if (!Configuration.HighMechanismPolicy.Scanning || !IsCustom(type)) return null;
             LifeAnalysisResult result = LifeAnalysisCoordinator.Shared.Resolve(new LifeAnalysisKey(LifeAnalysisKind.Type, type));
             if (result == null || observed.TryGetValue(type, out LifeAnalysisResult previous) && previous == result) return result;
             observed[type] = result; UnreadableMethods += result.Unreadable; LimitedAnalyses += result.Limited;
@@ -36,7 +36,7 @@ namespace LihuatLib.Mechanisms
             if (prepared?.Sites.Length > 0) LifeExecutionGuard.Register(prepared.Sites, value, owner);
             return prepared;
         }
-        private static LifeAnalysisResult TypeResult(Type type) => IsCustom(type)
+        private static LifeAnalysisResult TypeResult(Type type) => Configuration.HighMechanismPolicy.Scanning && IsCustom(type)
             ? LifeAnalysisCoordinator.Shared?.Find(new LifeAnalysisKey(LifeAnalysisKind.Type, type)) : null;
         public HashSet<FieldInfo> Fields(object value, Pawn owner)
         {
@@ -61,6 +61,7 @@ namespace LihuatLib.Mechanisms
         }
         internal void BindDeferred(Delegate work, Pawn owner, bool enabled)
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             Delegate[] calls = work.GetInvocationList();
             foreach (Delegate call in calls)
             {
@@ -81,6 +82,7 @@ namespace LihuatLib.Mechanisms
         }
         internal bool TryInspectCounterMethod(MethodInfo method, out MethodInfo[] methods)
         {
+            if (!Configuration.HighMechanismPolicy.Scanning) { methods = Array.Empty<MethodInfo>(); return true; }
             var key = new LifeAnalysisKey(LifeAnalysisKind.Counter, method);
             if (!LifeAnalysisCoordinator.Shared.Request(key)) { methods = Array.Empty<MethodInfo>(); LimitedAnalyses++; return true; }
             LifeAnalysisResult prepared = LifeAnalysisCoordinator.Shared.Find(key);

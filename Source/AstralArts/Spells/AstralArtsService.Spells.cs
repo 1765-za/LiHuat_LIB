@@ -10,7 +10,7 @@ namespace LihuatLib.AstralArts
     {
         internal readonly AstralSpellRuntime SpellRuntime = new();
         public IReadOnlyList<AstralSpellDef> LearnedSpells(AstralEntry entry) => entry.SkillEffects.Spells;
-        public float SpellReduction(Pawn pawn) => SpellRuntime.Reduction(pawn);
+        public float SpellReduction(Pawn pawn) => Configuration.HighMechanismPolicy.AstralArts ? SpellRuntime.Reduction(pawn) : 0f;
         public float SpellShield(Pawn pawn) => SpellRuntime.Active(pawn, AstralSpellKind.Barrier)?.Power ?? 0f;
         public void UseProviderSpellReduction(AstralEntry entry)
         { if (entry != null && Find(entry.Pawn) == entry) entry.ProviderSettlesSpells = true; }

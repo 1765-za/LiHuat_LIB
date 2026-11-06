@@ -25,6 +25,7 @@ namespace LihuatLib.AstralArts
         }
         public float DamageReduction(Pawn pawn)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.AstralArts) return 0f;
             if (OperationScope.MedicalFor(pawn)) return 0f;
             AstralEntry entry = Find(pawn);
             float spells = entry?.ProviderSettlesSpells == true ? 0f : SpellReduction(pawn);
@@ -74,6 +75,7 @@ namespace LihuatLib.AstralArts
         }
         public bool Available(AstralEntry entry)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.AstralArts) return false;
             Pawn pawn = entry?.Pawn;
             if (pawn == null || pawn.Dead || pawn.Destroyed || Find(pawn) != entry
                 || !permissions.TryGetValue(entry.Key, out Func<Pawn, bool> permission)) return false;
@@ -104,6 +106,7 @@ namespace LihuatLib.AstralArts
         }
         internal void Tick(int now)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.AstralArts) return;
             SpellRuntime.Tick(now);
             if (active.Length == 0 || now % AstralAccount.Interval != 0 || lastTick == now) return;
             lastTick = now;

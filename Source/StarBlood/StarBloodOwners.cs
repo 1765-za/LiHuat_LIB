@@ -1,29 +1,22 @@
-using System;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
+using System.Collections.Generic;
+using LihuatLib.Core;
 
 namespace LihuatLib.StarBlood
 {
-    internal sealed class StarBloodOwners : SafeHandleZeroOrMinusOneIsInvalid
+    internal sealed class StarBloodOwners
     {
-        internal StarBloodOwners() : base(true)
+        private sealed class Membership
         {
-            SetHandle(GCHandle.ToIntPtr(GCHandle.Alloc(new ConditionalWeakTable<object, StarBloodRules>())));
+            internal readonly ConditionalWeakTable<object, StarBloodRules> Index = new();
+            internal readonly List<StarBloodRules> Engines = new();
         }
-
-        // Keep the admission index out of the component graph without rooting its weak keys.
-        private ConditionalWeakTable<object, StarBloodRules> Index =>
-            (ConditionalWeakTable<object, StarBloodRules>)GCHandle.FromIntPtr(handle).Target;
+        private readonly RetainedState<Membership> membership = new(new Membership());
+        private ConditionalWeakTable<object, StarBloodRules> Index => membership.Value.Index;
+        internal List<StarBloodRules> Engines => membership.Value.Engines;
 
         internal bool TryGetValue(object key, out StarBloodRules value) => Index.TryGetValue(key, out value);
         internal void Add(object key, StarBloodRules value) => Index.Add(key, value);
         internal void Remove(object key) => Index.Remove(key);
-
-        protected override bool ReleaseHandle()
-        {
-            GCHandle.FromIntPtr(handle).Free();
-            return true;
-        }
     }
 }

@@ -8,7 +8,7 @@ using Verse;
 
 namespace LihuatLib.Mechanisms
 {
-    internal sealed class LifeDamageEntryIndex
+    internal sealed partial class LifeDamageEntryIndex
     {
         private sealed class Snapshot
         {
@@ -52,7 +52,11 @@ namespace LihuatLib.Mechanisms
 
         internal void Invalidate(MethodBase method)
         {
-            if (entries.TryGetValue(method, out Entry entry)) Interlocked.Increment(ref entry.Revision);
+            if (entries.TryGetValue(method, out Entry entry))
+            {
+                Interlocked.Increment(ref entry.Revision);
+                Interlocked.Increment(ref catalogRevision);
+            }
         }
     }
 }

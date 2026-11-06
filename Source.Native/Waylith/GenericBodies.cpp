@@ -3,6 +3,7 @@
 #include "NativeMemoryOwnership.h"
 #include "EntryWriteIndex.h"
 #include "ClrProfilerRequests.h"
+#include "HighMechanisms.h"
 #include <windows.h>
 #include <unordered_map>
 #include <vector>
@@ -114,7 +115,8 @@ API int __cdecl LihuatNative_GenericStatus(void* method, BodyStatus* output, uin
     auto found = bodies.find(method);
     if (found == bodies.end()) { *output = {}; return 1; }
     const auto& body = found->second;
-    *output = {body.publications, body.compilations, body.rejected, 1, lihuat::ProfilerRequestsIntact() ? 1u : 0u};
+    *output = {body.publications, body.compilations, body.rejected, 1,
+        !lihuat::NativeProtectionEnabled() || lihuat::ProfilerRequestsIntact() ? 1u : 0u};
     return 1;
 }
 

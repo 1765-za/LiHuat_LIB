@@ -8,7 +8,7 @@ using Verse;
 
 namespace LihuatLib.Mechanisms
 {
-    public static class PinnedHediffs
+    public static partial class PinnedHediffs
     {
         private sealed class Owner
         {
@@ -27,14 +27,11 @@ namespace LihuatLib.Mechanisms
             public Dictionary<FieldInfo, object> Identity;
             public int Slot = -1;
         }
+        // Field-reference emission can enter BlocksWrite before the remaining static fields are initialized.
+        private static Core.RetainedState<Registry> registry = new(new Registry(null));
         private static readonly AccessTools.FieldRef<Hediff, float> severity = AccessTools.FieldRefAccess<Hediff, float>("severityInt");
         private static readonly FieldInfo hediffList = AccessTools.Field(typeof(HediffSet), "hediffs");
         private static readonly Dictionary<Type, FieldInfo[]> identityFields = new Dictionary<Type, FieldInfo[]>();
-        private static Game game;
-        private static ConditionalWeakTable<Pawn, Owner> owners = new ConditionalWeakTable<Pawn, Owner>();
-        private static ConditionalWeakTable<HediffSet, Owner> sets = new ConditionalWeakTable<HediffSet, Owner>();
-        private static ConditionalWeakTable<List<Hediff>, Owner> lists = new ConditionalWeakTable<List<Hediff>, Owner>();
-        private static ConditionalWeakTable<Hediff, Entry> entries = new ConditionalWeakTable<Hediff, Entry>();
         [ThreadStatic] private static bool writing;
         public static long BlockedRemovals { get; private set; }
         public static long BlockedWrites { get; private set; }
@@ -43,9 +40,7 @@ namespace LihuatLib.Mechanisms
         private static void CurrentGame()
         {
             if (ReferenceEquals(game, Current.Game)) return;
-            game = Current.Game;
-            owners = new ConditionalWeakTable<Pawn, Owner>(); sets = new ConditionalWeakTable<HediffSet, Owner>();
-            lists = new ConditionalWeakTable<List<Hediff>, Owner>(); entries = new ConditionalWeakTable<Hediff, Entry>();
+            registry = new(new Registry(Current.Game));
         }
 
         public static void Pin(Pawn pawn, Hediff hediff)
@@ -113,24 +108,26 @@ namespace LihuatLib.Mechanisms
         }
         public static bool AllowRemoval(Hediff hediff)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Maintenance) return true;
             if (DeveloperExecution.Active) { Unpin(hediff); return true; }
             if (!Contains(hediff)) return true;
             BlockedRemovals++; return false;
         }
         public static bool AllowSeverity(Hediff hediff, float value)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Maintenance) return true;
             if (DeveloperExecution.Active) return true;
             if (game != Current.Game || hediff == null || !entries.TryGetValue(hediff, out Entry entry) || value == entry.Severity) return true;
             BlockedWrites++; return false;
         }
-        private static bool Protected(List<Hediff> list, Hediff hediff) => !DeveloperExecution.Active && game == Current.Game && list != null
+        private static bool Protected(List<Hediff> list, Hediff hediff) => Configuration.HighMechanismPolicy.Maintenance && !DeveloperExecution.Active && game == Current.Game && list != null
             && lists.TryGetValue(list, out Owner owner) && ReferenceEquals(owner.Set.hediffs, list)
             && hediff != null && entries.TryGetValue(hediff, out Entry entry) && ReferenceEquals(entry.Owner, owner);
 
         public static void Reconcile(Pawn pawn) => Reconcile(pawn, false);
         private static void Reconcile(Pawn pawn, bool explicitPin)
         {
-            if (DeveloperExecution.Active && !explicitPin) return;
+            if ((!Configuration.HighMechanismPolicy.Maintenance || DeveloperExecution.Active) && !explicitPin) return;
             if (game != Current.Game || pawn == null || !owners.TryGetValue(pawn, out Owner owner) || writing) return;
             writing = true;
             try
@@ -160,6 +157,7 @@ namespace LihuatLib.Mechanisms
 
         public static void Maintain(Pawn pawn)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Maintenance) return;
             if (game != Current.Game || pawn == null || !owners.TryGetValue(pawn, out Owner owner)) return;
             int now = Find.TickManager.TicksGame;
             if (now < owner.RepairAt) return;
@@ -169,6 +167,7 @@ namespace LihuatLib.Mechanisms
 
         public static bool BlocksWrite(FieldInfo field, object target, object value)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Maintenance) return false;
             if (DeveloperExecution.Active) return false;
             if (writing || game != Current.Game || field == null || target == null) return false;
             bool blocked = false;

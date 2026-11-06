@@ -41,6 +41,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Discover()
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (!LibraryCapabilities.Has(LibraryCapability.StarBlood)) return;
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -73,6 +74,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static void Update()
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             if (pending.Count == 0 || !pendingChanged && lastPublication == LifeAnalysisCoordinator.Shared.Published) return;

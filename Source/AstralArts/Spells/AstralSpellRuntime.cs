@@ -12,7 +12,8 @@ namespace LihuatLib.AstralArts
         private readonly PriorityQueue<(AstralTimedEffect Effect, int Revision), int> events = new();
         internal bool HasEffects(Pawn caster) => byCaster.ContainsKey(caster.GetUniqueLoadID());
         internal AstralTimedEffect Active(Pawn pawn, AstralSpellKind kind)
-            => pawn != null && byPawn.TryGetValue((pawn, kind), out var effect) && effect.Until > Find.TickManager.TicksGame ? effect : null;
+            => Configuration.HighMechanismPolicy.AstralArts && pawn != null && byPawn.TryGetValue((pawn, kind), out var effect)
+                && effect.Until > Find.TickManager.TicksGame ? effect : null;
         internal float Reduction(Pawn pawn) => Active(pawn, AstralSpellKind.Bastion)?.Reduction ?? 0f;
         internal float DamageFactor(Pawn pawn) => Active(pawn, AstralSpellKind.Rally)?.DamageFactor ?? 1f;
 

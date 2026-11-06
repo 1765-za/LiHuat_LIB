@@ -41,6 +41,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             Assembly core = typeof(object).Assembly;
             Type updater = core.GetType("WaylithClr.MethodBodyUpdater", true);
             const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Static;

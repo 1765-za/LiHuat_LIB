@@ -13,15 +13,22 @@ namespace LihuatLib
         public LibraryMod(ModContentPack content) : base(content)
         {
             Core.LibraryCapabilities.Enable(Core.LibraryCapability.IlDispatch | Core.LibraryCapability.RuntimeIl);
-            Mechanisms.NativeEntryBackend.Initialize();
-            Mechanisms.PatchIntegrity.Install();
             instance = this;
             Mechanics = GetSettings<MechanismSettings>();
+            HighMechanismPolicy.Initialize(Mechanics.DisabledHighMechanisms);
+            Mechanisms.NativeEntryBackend.Initialize();
+            Mechanisms.PatchIntegrity.Install();
             ActiveScanner = Mechanics.Scanner;
             Patches.AnalysisLoadingPatch.Install();
         }
         public override string SettingsCategory() => Content.Name;
         public static void OpenMechanismSettings() => Find.WindowStack.Add(new MechanismSettingsWindow(instance));
+        internal void SelectHighMechanisms(HighMechanism disabled)
+        {
+            if (Mechanics.DisabledHighMechanisms == disabled) return;
+            Mechanics.SelectHighMechanisms(disabled);
+            WriteSettings();
+        }
         internal void SelectScanner(AnalysisScanner scanner)
         {
             if (Mechanics.Scanner == scanner) return;

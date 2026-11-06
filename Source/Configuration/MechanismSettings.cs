@@ -7,6 +7,9 @@ namespace LihuatLib.Configuration
     {
         private GameplayMechanic disabled;
         private AnalysisScanner scanner;
+        private HighMechanism disabledHighMechanisms;
+        public HighMechanism DisabledHighMechanisms => disabledHighMechanisms;
+        internal void SelectHighMechanisms(HighMechanism value) => disabledHighMechanisms = value & HighMechanism.All;
         public AnalysisScanner Scanner => scanner;
         internal void SelectScanner(AnalysisScanner value)
         {
@@ -24,6 +27,7 @@ namespace LihuatLib.Configuration
         {
             Scribe_Values.Look(ref disabled, "disabledMechanics", GameplayMechanic.None);
             Scribe_Values.Look(ref scanner, "analysisScanner", AnalysisScanner.Normal);
+            Scribe_Values.Look(ref disabledHighMechanisms, "disabledHighMechanisms", HighMechanism.None);
         }
     }
 }

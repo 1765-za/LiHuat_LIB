@@ -6,8 +6,7 @@ namespace LihuatLib.StarBlood
     internal sealed class StarBloodRoster
     {
         private readonly StarBloodOwners owners = new StarBloodOwners();
-        private readonly List<StarBloodRules> engines = new List<StarBloodRules>();
-        internal bool HasSubjects => engines.Count != 0;
+        internal bool HasSubjects => owners.Engines.Count != 0;
         internal StarBloodRules Find(object target) => target != null && HasSubjects && owners.TryGetValue(target, out StarBloodRules engine) ? engine : null;
 
         internal void Register(StarBloodRules engine)
@@ -15,7 +14,7 @@ namespace LihuatLib.StarBlood
             Pawn pawn = engine.Subject.Pawn;
             StarBloodRules previous = Find(pawn);
             if (previous != null) Remove(previous);
-            engines.Add(engine);
+            owners.Engines.Add(engine);
             owners.Add(pawn, engine);
             owners.Add(engine.Anchor.Health, engine);
             owners.Add(engine.Anchor.Hediffs, engine);
@@ -24,7 +23,7 @@ namespace LihuatLib.StarBlood
         }
         internal void Remove(StarBloodRules engine)
         {
-            if (!engines.Remove(engine)) return;
+            if (!owners.Engines.Remove(engine)) return;
             owners.Remove(engine.Subject.Pawn);
             owners.Remove(engine.Anchor.Health);
             owners.Remove(engine.Anchor.Hediffs);
@@ -32,15 +31,16 @@ namespace LihuatLib.StarBlood
         }
         internal void Update()
         {
+            List<StarBloodRules> engines = owners.Engines;
             for (int i = engines.Count - 1; i >= 0; i--) engines[i].Update();
         }
         internal void AcceptTransfers()
         {
-            foreach (StarBloodRules engine in engines) engine.Anchor.AcceptLocation();
+            foreach (StarBloodRules engine in owners.Engines) engine.Anchor.AcceptLocation();
         }
         internal void AcceptDeveloperChanges()
         {
-            foreach (StarBloodRules engine in engines.ToArray())
+            foreach (StarBloodRules engine in owners.Engines.ToArray())
             {
                 StarBloodSubject subject = engine.Subject;
                 if (subject == null) continue;

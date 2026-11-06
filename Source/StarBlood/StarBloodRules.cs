@@ -79,17 +79,19 @@ namespace LihuatLib.StarBlood
             tickCallback = null;
             lastTickFaultLog = int.MinValue;
             Pawn pawn = subject?.Pawn;
-            if (pawn == null) return;
+            if (pawn == null || !Configuration.HighMechanismPolicy.Maintenance) return;
             Anchor = new LifeAnchor(subject);
             StarBloodRegistry.Register(this);
             LifeRetirementGuard.Discover();
             EnsureMarker(pawn);
-            injections.Initialize(pawn); counters.Initialize(pawn);
+            if (Configuration.HighMechanismPolicy.Scanning)
+            { injections.Initialize(pawn); counters.Initialize(pawn); }
         }
         public void Update()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.Maintenance) return;
             PawnContinuity.Update(Subject?.Pawn);
-            counters.Update(Subject?.Pawn);
+            if (Configuration.HighMechanismPolicy.Scanning) counters.Update(Subject?.Pawn);
         }
         public void PrepareTick() => PawnContinuity.PrepareTick(Subject?.Pawn);
         internal void EnterTickCallback(Pawn pawn, string callback)
@@ -121,7 +123,7 @@ namespace LihuatLib.StarBlood
         }
         internal void AcceptRestoration()
         {
-            if (Subject == null) return;
+            if (Subject == null || !Configuration.HighMechanismPolicy.Maintenance) return;
             StarBloodRegistry.Remove(Subject.Pawn, this);
             Subject.State.DeveloperDeathPawnId = null;
             Anchor = new LifeAnchor(Subject);
@@ -130,19 +132,24 @@ namespace LihuatLib.StarBlood
 
         internal void AcceptHealthExchange()
         {
+            if (!Configuration.HighMechanismPolicy.Maintenance) return;
             AcceptRestoration();
             marker = Subject.Pawn.health.hediffSet.GetFirstHediffOfDef(Subject.MarkerDef);
             markerPawn = Subject.Pawn;
-            injections.Initialize(Subject.Pawn);
+            if (Configuration.HighMechanismPolicy.Scanning) injections.Initialize(Subject.Pawn);
         }
 
-        public void BindDeferred(Delegate work, Pawn owner) => evidence.BindDeferred(work, owner,
+        public void BindDeferred(Delegate work, Pawn owner)
+        {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
+            evidence.BindDeferred(work, owner,
             Enabled(FindSubject(owner)) && !OperationScope.Terminates(owner) && !OperationScope.Transferring
                 && !OperationScope.Rebirthing && !OperationScope.MedicalFor(owner));
+        }
 
         public void EnsureMarker(Pawn pawn)
         {
-            if (repairingMarker || pawn?.health?.hediffSet == null || FindSubject(pawn) == null
+            if (!Configuration.HighMechanismPolicy.Maintenance || repairingMarker || pawn?.health?.hediffSet == null || FindSubject(pawn) == null
                 || Subject?.State.DeveloperRemovedMarker == true || OperationScope.Terminates(pawn) || PawnLife.Dead(pawn)) return;
             repairingMarker = true;
             try
@@ -195,6 +202,7 @@ namespace LihuatLib.StarBlood
 
         public int Observe(Pawn target, bool force = false)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.ScannedProtection) return 0;
             StarBloodSubject record = FindSubject(target);
             if (Restoring || record == null || (!force && active.Count > 0)) return 0;
             Restoring = true;
@@ -204,6 +212,7 @@ namespace LihuatLib.StarBlood
 
         public Attack Begin(Pawn target, Thing source, bool validHit)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.ScannedProtection) return null;
             StarBloodSubject record = FindSubject(target);
             if (!validHit || !Enabled(record) || OperationScope.MedicalFor(target) || Restoring || source == null
                 || source == target || !source.HostileTo(target) || record.State.InspectedSources.Contains(source.ThingID)
@@ -222,6 +231,7 @@ namespace LihuatLib.StarBlood
 
         public bool BeforeDeath(Pawn target)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.ScannedProtection) return false;
             if (Restoring || OperationScope.Terminates(target) || OperationScope.MedicalFor(target)
                 || !Enabled(FindSubject(target))) return false;
             if (WoundEvidence.Lethal(target)) return false;

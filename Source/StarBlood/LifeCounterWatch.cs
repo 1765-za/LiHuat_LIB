@@ -14,7 +14,7 @@ namespace LihuatLib.StarBlood
         private readonly HashSet<Type> componentTypes = new HashSet<Type>();
         private readonly HashSet<MethodInfo> seen = new HashSet<MethodInfo>();
         private readonly Queue<MethodInfo> pending = new Queue<MethodInfo>();
-        private readonly HashSet<Type> workers = new HashSet<Type>();
+        private MethodInfo[] damageEntries;
         private Map map;
         private int nextDiscovery;
         private int lastFrame = -1;
@@ -85,13 +85,10 @@ namespace LihuatLib.StarBlood
 
         private void DiscoverDamageEntries()
         {
-            LifeDamageEntryIndex index = LifeAnalysisCoordinator.Shared.DamageEntries;
-            DamageEntry(index.TakeDamage);
-            DamageEntry(index.AddHediff);
-            workers.Clear();
-            foreach (DamageDef def in DefDatabase<DamageDef>.AllDefsListForReading)
-                if (def.workerClass != null && workers.Add(def.workerClass))
-                    DamageEntry(index.Worker(def.workerClass));
+            MethodInfo[] current = LifeAnalysisCoordinator.Shared.DamageEntries.CaptureCandidates();
+            if (ReferenceEquals(current, damageEntries)) return;
+            damageEntries = current;
+            foreach (MethodInfo method in current) Enqueue(method);
         }
 
         private void Component(Type type)

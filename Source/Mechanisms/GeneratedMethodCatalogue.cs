@@ -76,6 +76,7 @@ namespace LihuatLib.Mechanisms
                     if (line.operand is not MethodBase called || line.opcode != OpCodes.Call && line.opcode != OpCodes.Callvirt
                         && line.opcode != OpCodes.Newobj && line.opcode != OpCodes.Ldftn) continue;
                     authority |= RuntimeAuthorityCalls.Changes(called);
+                    indirect |= called is MethodInfo raw && ObjectAddressCalls.Replacement(raw) != null;
                     collections |= called is MethodInfo collection && HediffListCalls.Known(collection);
                     if (called is MethodInfo helper && (helper.Module.Assembly == root.Module.Assembly
                         || FieldReferenceConsumer.Special(helper))) pending.Push(helper);

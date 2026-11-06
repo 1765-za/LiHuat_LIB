@@ -39,6 +39,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Discover()
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (!LibraryCapabilities.Has(LibraryCapability.HediffProtection)) return;
             if (active && !changed) return;
             active = true; changed = false;
@@ -59,7 +60,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static void DiscoverCallers()
         {
-            if (!LibraryCapabilities.Has(LibraryCapability.HediffProtection) || LifeAnalysisCoordinator.Shared == null) return;
+            if (!Configuration.HighMechanismPolicy.ScannedProtection || !LibraryCapabilities.Has(LibraryCapability.HediffProtection) || LifeAnalysisCoordinator.Shared == null) return;
             foreach (MethodInfo target in HediffListCalls.Methods)
                 foreach (LifeCallEdge edge in LifeAnalysisCoordinator.Shared.CallGraph.Callers(target))
                 {
@@ -70,6 +71,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static void Update()
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (!active) return;
             if (changed) Discover();
             if (pending.Count == 0) return;

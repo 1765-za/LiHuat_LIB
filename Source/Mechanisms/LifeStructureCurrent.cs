@@ -37,7 +37,7 @@ namespace LihuatLib.Mechanisms
                 || !ReferenceEquals(rootComponents, pawn.AllComps) || !ReferenceEquals(rootConditions, rootSet.hediffs)
                 || !RootsMatch()) return false;
             foreach (var entry in structureTypes)
-                if (!ReferenceEquals(entry.Value, LifeAnalysisCoordinator.Shared.Find(new LifeAnalysisKey(LifeAnalysisKind.Type, entry.Key))))
+                if (!ReferenceEquals(entry.Value, LifeAnalysisCoordinator.Shared?.Find(new LifeAnalysisKey(LifeAnalysisKind.Type, entry.Key))))
                     return false;
             foreach (Node node in nodes.Values)
             {

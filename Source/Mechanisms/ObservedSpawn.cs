@@ -49,7 +49,10 @@ namespace LihuatLib.Mechanisms
         {
             Notifications current = Current();
             current.Before?.Invoke(thing, cell, map, rotation, wipeMode, respawningAfterLoad, forbidLeavings, null);
+            if (thing is Pawn pawn && LihuatGame.Current?.Lifecycle.AllowsRegistration(pawn) == false)
+                throw new Core.RegenerationDeniedException();
             Thing result = spawn(thing, cell, map, rotation, wipeMode, respawningAfterLoad, forbidLeavings);
+            if (result is Pawn placed && placed.Spawned) LihuatGame.Current?.Lifecycle.Registered(placed);
             current.After?.Invoke(thing, cell, map, rotation, wipeMode, respawningAfterLoad, forbidLeavings, result);
             return result;
         }

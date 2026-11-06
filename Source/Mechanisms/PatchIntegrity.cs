@@ -42,7 +42,7 @@ namespace LihuatLib.Mechanisms
             rebuild = (Func<MethodBase, PatchInfo, MethodInfo>)IndependentIl.Compile(registration);
             NativeIlGuards.InstallControls(new[] { update, reverse, detour }, new[] { registration, reverseCopy, direct });
             Integrations.HarmonySourceBody.Install();
-            HarmonyPatchAuthority.Install();
+            if (Configuration.HighMechanismPolicy.NativeProtection) HarmonyPatchAuthority.Install();
             installed = true;
             foreach (MethodBase original in Harmony.GetAllPatchedMethods().ToArray())
             {
@@ -72,6 +72,7 @@ namespace LihuatLib.Mechanisms
 
         private static bool BeforeReverse(HarmonyMethod standin, MethodBase original, ref MethodInfo __result)
         {
+            if (!Configuration.HighMechanismPolicy.NativeProtection) return true;
             if (!ProtectedDestination(standin?.method)) return true;
             RejectedCopies++;
             __result = standin.method;
@@ -80,6 +81,7 @@ namespace LihuatLib.Mechanisms
 
         private static bool AllowDetour(MethodBase method)
         {
+            if (!Configuration.HighMechanismPolicy.NativeProtection) return true;
             if (!ProtectedDestination(method)) return true;
             RejectedDetours++;
             return false;
@@ -101,6 +103,8 @@ namespace LihuatLib.Mechanisms
 
         private static bool BeforeUpdate(MethodBase original, PatchInfo patchInfo, ref MethodInfo result)
         {
+            if (!Configuration.HighMechanismPolicy.NativeProtection)
+            { WrapperPreparing?.Invoke(original, patchInfo); return true; }
             MethodInfo control = NativeIlGuards.Control(original);
             if (control != null)
             {

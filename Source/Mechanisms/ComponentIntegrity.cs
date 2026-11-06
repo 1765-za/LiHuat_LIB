@@ -8,6 +8,7 @@ namespace LihuatLib.Mechanisms
         private const BindingFlags Methods = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             MethodInfo dispatch = typeof(ComponentIntegrity).GetMethod(nameof(BeforeDispatch), Methods);
             foreach (string name in new[] { nameof(GameComponentUtility.GameComponentUpdate), nameof(GameComponentUtility.GameComponentTick), nameof(GameComponentUtility.FinalizeInit) })
                 NativeIlGuards.Guard(typeof(GameComponentUtility).GetMethod(name, Methods), dispatch);

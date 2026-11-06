@@ -26,6 +26,9 @@ namespace LihuatLib.Mechanisms
 
         internal static bool Rewrite(ILGenerator il, OpCode opcode, object operand)
         {
+            if (opcode == OpCodes.Call && operand is MethodInfo raw
+                && ObjectAddressCalls.Replacement(raw) is MethodInfo guarded)
+            { il.Emit(OpCodes.Call, guarded); return true; }
             if ((opcode == OpCodes.Call || opcode == OpCodes.Callvirt) && operand is MethodInfo method
                 && HediffListCalls.Replacement(method) is MethodInfo insertion)
             { il.Emit(OpCodes.Call, insertion); return true; }

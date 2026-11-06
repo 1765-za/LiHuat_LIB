@@ -29,6 +29,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Register(IEnumerable<LifeDeferredSite> candidates)
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             var changed = new HashSet<MethodBase>();
             foreach (LifeDeferredSite candidate in candidates)
             {

@@ -7,7 +7,8 @@ namespace LihuatLib
     public sealed partial class LihuatGame : GameComponent
     {
         internal readonly StarBloodRoster Subjects = new StarBloodRoster();
-        public readonly LifecycleChannel Lifecycle = new LifecycleChannel();
+        public readonly Core.GenerationAdmission Admission = new();
+        public readonly LifecycleChannel Lifecycle;
         public readonly Endings.GameEndingChannel Endings = new();
         public readonly Core.RegenerationFlow Regeneration;
         public readonly Core.PawnPresenceRegistry Presence;
@@ -23,12 +24,13 @@ namespace LihuatLib
         internal void BindCharacters(Characters.CharacterWorldStore storage) => characterStore = storage;
         public LihuatGame(Game game)
         {
+            Lifecycle = new LifecycleChannel(Admission);
             Extensions = new Api.ExtensionHost(game, this);
             Regeneration = new Core.RegenerationFlow(Lifecycle);
-            Presence = new Core.PawnPresenceRegistry(Lifecycle);
+            Presence = new Core.PawnPresenceRegistry(Admission);
             RetainedGameComponents.Register(game, this);
             if (LibraryCapabilities.Has(LibraryCapability.Lifecycle)) Lifecycle.Register(new LifecycleHandler
-            { Id = "lihuat.lib.presence", Order = 5, Registered = Presence.Registered, Completed = Presence.Completed });
+            { Id = "lihuat.lib.presence", Order = 5, Completed = Presence.Completed });
             if (LibraryCapabilities.Has(LibraryCapability.StarBlood)) Lifecycle.Register(new LifecycleHandler
             {
                 Id = "lihuat.lib.continuity", Order = 0, BlocksComponentRemoval = PawnContinuity.Protects,
@@ -63,9 +65,10 @@ namespace LihuatLib
         }
         public override void FinalizeInit()
         {
-            Presence.Initialize();
-            Mechanisms.NativeRuntime.FlushCompiled();
             characterStore = Find.World.GetComponent<Characters.CharacterWorldStore>();
+            Presence.Initialize();
+            Admission.CompleteLoad();
+            Mechanisms.NativeRuntime.FlushCompiled();
             if (LibraryCapabilities.Has(LibraryCapability.Domains)) InitializeDomains();
             Extensions.Schedule();
         }

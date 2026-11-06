@@ -91,6 +91,8 @@ namespace LihuatLib.Mechanisms
         {
             if (map == null || !Find.Maps.Contains(map) || !cell.InBounds(map))
                 throw new InvalidOperationException("Invalid transfer destination for " + thing?.ThingID + ": " + cell);
+            if (thing is Pawn entrant && LihuatGame.Current?.Lifecycle.AllowsRegistration(entrant) == false)
+                throw new Core.RegenerationDeniedException();
             if (LihuatGame.Current?.Domains.AllowsDestination(thing, map) == false)
                 throw new InvalidOperationException("The pawn is confined to its domain map.");
             if (LihuatGame.Current?.Domains.Barriers.PlaceArrival(thing, map, ref cell) == false)
@@ -108,10 +110,12 @@ namespace LihuatLib.Mechanisms
                 throw new InvalidOperationException("Destination registration failed for " + thing.ThingID + " map=" + CurrentMap(thing)?.uniqueID
                     + " expected=" + map.uniqueID + " holder=" + thing.holdingOwner + " placed=" + placed
                     + " pawnRegistration=" + pawnRegistrationValid + " active=" + pawn?.mindState.Active + " world=" + worldMember);
+            if (pawn != null) LihuatGame.Current?.Lifecycle.Registered(pawn);
         }
 
         public static bool Store(Thing thing, ThingOwner holder)
         {
+            if (thing is Pawn pawn && LihuatGame.Current?.Lifecycle.AllowsRegistration(pawn) == false) return false;
             Map map = ThingOwnerUtility.GetRootMap(holder.Owner);
             if (LihuatGame.Current?.Domains.AllowsDestination(thing, map) == false) return false;
             using var intent = new MapTransferIntent(thing, map);

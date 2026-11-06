@@ -33,7 +33,10 @@ namespace LihuatLib.Mechanisms
         }
 
         internal static void Discover()
-        { Discover(null, null); }
+        {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
+            Discover(null, null);
+        }
 
         private static void BeforePublication(MethodBase method, PatchInfo info)
         {
@@ -45,6 +48,7 @@ namespace LihuatLib.Mechanisms
 
         private static void Discover(MethodInfo proposedRoot, MethodInfo[] prefixes)
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (!LibraryCapabilities.Has(LibraryCapability.StarBlood)) return;
             if (scanning) return;
             scanning = true;
@@ -99,6 +103,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Update()
         {
+            if (!Configuration.HighMechanismPolicy.ScannedProtection) return;
             if (StarBloodScanPolicy.CacheOnly || !dirty || lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             Discover();

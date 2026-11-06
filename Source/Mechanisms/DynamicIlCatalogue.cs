@@ -60,6 +60,9 @@ namespace LihuatLib.Mechanisms
                     setter => info.GetTokenFor(setter), DynamicWriteCatalogue.AddressResult(info.DynamicMethod.ReturnType));
                 code = DynamicLifecycleCalls.Rewrite(code, token => body.Tokens.TryGetValue(token, out MemberInfo member) ? member : null,
                     guarded => info.GetTokenFor(guarded));
+                if (!DynamicWriteCatalogue.Register(info.DynamicMethod).Trusted)
+                    code = ObjectAddressCalls.Rewrite(code, token => body.Tokens.TryGetValue(token, out MemberInfo member) ? member : null,
+                        guarded => info.GetTokenFor(guarded.MethodHandle));
             }
             return code;
         }

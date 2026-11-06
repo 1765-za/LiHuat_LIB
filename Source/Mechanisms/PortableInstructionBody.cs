@@ -14,7 +14,7 @@ namespace LihuatLib.Mechanisms
             MethodBody body = NativeRuntime.SourceBody(original)
                 ?? throw new InvalidOperationException("Missing source body: " + original);
             byte[] bytes = CilRewrite.ReadSource(original, body);
-            LocalBuilder[] locals = body.LocalVariables.Select(v => generator.DeclareLocal(v.LocalType, v.IsPinned)).ToArray();
+            LocalBuilder[] locals = body.LocalVariables.Select(v => generator.DeclareLocal(EmittedLocalType(v.LocalType), v.IsPinned)).ToArray();
             List<Instruction> decoded = Decode(original, bytes);
             Dictionary<int, Label> labels = BuildLabels(generator, decoded, bytes.Length);
             var destinations = new HashSet<int>();
@@ -41,6 +41,10 @@ namespace LihuatLib.Mechanisms
             AddBlocks(result, end, events, bytes.Length);
             return result;
         }
+
+        // Reflection.Emit cannot import runtime function-pointer Type tokens; calli retains the complete ABI.
+        private static Type EmittedLocalType(Type type) => type.IsFunctionPointer ? typeof(IntPtr)
+            : type.IsByRef && type.GetElementType().IsFunctionPointer ? typeof(IntPtr).MakeByRefType() : type;
 
         private static void AddBlocks(List<CodeInstruction> previous, CodeInstruction current,
             Dictionary<int, List<ExceptionEvent>> events, int offset)

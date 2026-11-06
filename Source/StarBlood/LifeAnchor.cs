@@ -135,6 +135,7 @@ namespace LihuatLib.StarBlood
                     }
                 }
                 if (WoundEvidence.Lethal(Pawn)) return;
+                using var admission = LihuatGame.Current.Admission.Recover(Pawn);
                 if (Map != null && activeOnMap && !active(Pawn.mindState)) { active(Pawn.mindState) = true; Dirty = true; }
                 if (healthState(Health) == PawnHealthState.Dead)
                 {
@@ -153,13 +154,22 @@ namespace LihuatLib.StarBlood
                 {
                     cell = position(Pawn);
                     if (!PawnMapPresence.Complete(Pawn, Map))
-                    { Dirty = !PawnMapPresence.Restore(Pawn, Map); if (!Dirty) PawnContinuity.RestoredRegistration++; }
+                    {
+                        Dirty = !PawnMapPresence.Restore(Pawn, Map);
+                        if (!Dirty) { LihuatGame.Current.Lifecycle.Registered(Pawn); PawnContinuity.RestoredRegistration++; }
+                    }
                     return;
                 }
                 if (!position(Pawn).InBounds(Map)) position(Pawn) = cell;
-                using (new OperationScope(OperationKind.Transfer)) MapTransfer.Place(Pawn, Map, cell, Pawn.Rotation);
+                using (new OperationScope(OperationKind.Transfer))
+                {
+                    mapIndex(Pawn) = -1;
+                    Pawn.markedForDiscard = false;
+                    MapTransfer.Place(Pawn, Map, cell, Pawn.Rotation);
+                }
                 holder = Pawn.holdingOwner;
                 if (!PawnMapPresence.Restore(Pawn, Map)) Dirty = true;
+                if (!Dirty) LihuatGame.Current.Lifecycle.Registered(Pawn);
                 Pawn.markedForDiscard = false;
                 Health.CheckForStateChange(null, null);
                 PawnContinuity.RestoredRegistration++;

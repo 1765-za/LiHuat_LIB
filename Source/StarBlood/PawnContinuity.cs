@@ -53,6 +53,7 @@ namespace LihuatLib.StarBlood
         }
         internal static void Update(Pawn pawn)
         {
+            if (!Configuration.HighMechanismPolicy.Maintenance) return;
             LifeAnchor anchor = Find(pawn);
             if (anchor == null) return;
             anchor.Update();
@@ -60,6 +61,7 @@ namespace LihuatLib.StarBlood
         }
         internal static void PrepareTick(Pawn pawn)
         {
+            if (!Configuration.HighMechanismPolicy.Maintenance) return;
             LifeAnchor anchor = Find(pawn);
             if (anchor != null && !anchor.StructureIntact) anchor.Update();
         }

@@ -1,3 +1,4 @@
+#include "HighMechanisms.h"
 #include <windows.h>
 #include <cor.h>
 #include <atomic>
@@ -55,7 +56,7 @@ public:
         if (owned) return S_OK;
         ICorProfilerInfo10* info = nullptr;
         HRESULT hr = runtime->QueryInterface(__uuidof(ICorProfilerInfo10), reinterpret_cast<void**>(&info));
-        if (SUCCEEDED(hr) && !lihuat::InstallProfilerRequests(info)) { info->Release(); info = nullptr; hr = E_FAIL; }
+        if (SUCCEEDED(hr) && lihuat::NativeProtectionEnabled() && !lihuat::InstallProfilerRequests(info)) { info->Release(); info = nullptr; hr = E_FAIL; }
         if (SUCCEEDED(hr)) {
             ICorProfilerInfo10* expected = nullptr;
             if (information.compare_exchange_strong(expected, info, std::memory_order_acq_rel)) {

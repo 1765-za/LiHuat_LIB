@@ -17,13 +17,16 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install()
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             MethodInfo pin = AccessTools.Method(typeof(GCHandle), nameof(GCHandle.Alloc), new[] { typeof(object), typeof(GCHandleType) });
             NativeIlGuards.Guard(pin, AccessTools.Method(typeof(PointerAccessProtection), nameof(RequirePinnedAccess)), 0, 1);
+            ObjectAddressBoundary.Install();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Register(MethodInfo handler)
         {
+            if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             CodePublicationAuthority.RequireCaller();
             CodePublicationAuthority.RequireBlueprint(handler);
             if (registered.Contains(handler)) return;
@@ -37,9 +40,11 @@ namespace LihuatLib.Mechanisms
             if (type == GCHandleType.Pinned) RequireAccess(target);
         }
 
-        private static void RequireAccess(object target)
+        internal static void RequireAccess(object target)
         {
-            bool denied = target is Hediff hediff && PinnedHediffs.Contains(hediff);
+            if (target == null) return;
+            bool denied = Core.InfrastructureAssemblies.Contains(target.GetType().Assembly)
+                || target is Hediff hediff && PinnedHediffs.Contains(hediff);
             if (!denied)
             {
                 Pawn pawn = target as Pawn ?? LihuatGame.Current?.Subjects.Find(target)?.Subject.Pawn;

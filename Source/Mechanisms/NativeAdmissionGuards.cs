@@ -48,9 +48,11 @@ namespace LihuatLib.Mechanisms
                 AccessTools.Method(typeof(NativeAdmissionGuards), nameof(Generated)));
             NativeIlGuards.Guard(AccessTools.Method(typeof(PawnGenerator), nameof(PawnGenerator.GeneratePawn), new[] { typeof(PawnGenerationRequest) }),
                 AccessTools.Method(typeof(NativeAdmissionGuards), nameof(BeforeGeneration)));
-            NativeIlGuards.Scoped(AccessTools.DeclaredMethod(typeof(Pawn), nameof(Pawn.SpawnSetup)),
-                AccessTools.Method(typeof(NativeAdmissionGuards), nameof(BeginSetup)), new[] { 0 },
-                AccessTools.Method(typeof(NativeAdmissionGuards), nameof(EndSetup)), Array.Empty<int>());
+            MethodInfo pawnSetup = AccessTools.DeclaredMethod(typeof(Pawn), nameof(Pawn.SpawnSetup));
+            NativeIlGuards.RegisterLayer(pawnSetup, typeof(NativeAdmissionGuards).FullName + ".SetupCompletion", NativeIlGuards.ScopeOrder,
+                body => IlBoundaryEmitter.Scope(pawnSetup, body,
+                    AccessTools.Method(typeof(NativeAdmissionGuards), nameof(BeginSetup)), new[] { 0 },
+                    AccessTools.Method(typeof(NativeAdmissionGuards), nameof(EndSetup)), Array.Empty<int>()), false);
         }
 
         private static bool Admit(Thing thing) => !(thing is Pawn pawn)
