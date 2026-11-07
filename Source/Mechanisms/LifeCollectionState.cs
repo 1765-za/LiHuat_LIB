@@ -26,7 +26,7 @@ namespace LihuatLib.Mechanisms
         internal void Capture(object owner, ICollection source, object[] values, int count)
         {
             if (!entries.TryGetValue(owner, out Entry entry)) entries.Add(owner, entry = new Entry());
-            if (entry.Source?.GetType() != source.GetType()) entry.Matches = owner is IDictionary ? CopyMatches : Matcher(source);
+            if (entry.Source?.GetType() != source.GetType()) entry.Matches = Matcher(owner, source);
             entry.Owner = owner; entry.Source = source; entry.Generation = generation;
             entry.Values.Clear();
             for (int i = 0; i < count; i++) entry.Values.Add(values[i]);
@@ -55,26 +55,53 @@ namespace LihuatLib.Mechanisms
             return true;
         }
 
-        private static Func<ICollection, List<object>, bool> Matcher(ICollection source)
+        private static Func<ICollection, List<object>, bool> Matcher(object owner, ICollection source)
         {
+            if (owner is IDictionary)
+            {
+                Type dictionary = owner.GetType();
+                return dictionary.IsGenericType && dictionary.GetGenericTypeDefinition() == typeof(Dictionary<,>)
+                    ? TypedMatcher(nameof(DictionaryMatches), dictionary.GenericTypeArguments) : CopyMatches;
+            }
             if (source is object[]) return ArrayMatches;
             Type type = source.GetType();
+            if (type.IsSZArray) return TypedMatcher(nameof(ValueArrayMatches), type.GetElementType());
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                Type item = type.GenericTypeArguments[0];
-                if (!item.IsValueType)
-                    return typeof(LifeCollectionState).GetMethod(nameof(ListMatches), BindingFlags.Static | BindingFlags.NonPublic)
-                        .MakeGenericMethod(item).CreateDelegate<Func<ICollection, List<object>, bool>>();
-            }
+                return TypedMatcher(nameof(ListMatches), type.GenericTypeArguments);
             return CopyMatches;
         }
 
-        private static bool ListMatches<T>(ICollection source, List<object> expected) where T : class
+        private static Func<ICollection, List<object>, bool> TypedMatcher(string method, params Type[] arguments) =>
+            typeof(LifeCollectionState).GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic)
+                .MakeGenericMethod(arguments).CreateDelegate<Func<ICollection, List<object>, bool>>();
+
+        private static bool ElementMatches<T>(T value, object expected) => typeof(T).IsValueType
+            ? EqualityComparer<T>.Default.Equals(value, expected == null ? default : (T)expected)
+            : ReferenceEquals(value, expected);
+
+        private static bool ListMatches<T>(ICollection source, List<object> expected)
         {
             ReadOnlySpan<T> current = CollectionsMarshal.AsSpan((List<T>)source);
             ReadOnlySpan<object> previous = CollectionsMarshal.AsSpan(expected);
             if (current.Length != previous.Length) return false;
-            for (int i = 0; i < current.Length; i++) if (!ReferenceEquals(current[i], previous[i])) return false;
+            for (int i = 0; i < current.Length; i++) if (!ElementMatches(current[i], previous[i])) return false;
+            return true;
+        }
+
+        private static bool ValueArrayMatches<T>(ICollection source, List<object> expected)
+        {
+            var current = (T[])source;
+            if (current.Length != expected.Count) return false;
+            for (int i = 0; i < current.Length; i++) if (!ElementMatches(current[i], expected[i])) return false;
+            return true;
+        }
+
+        private static bool DictionaryMatches<TKey, TValue>(ICollection source, List<object> expected)
+        {
+            var current = (Dictionary<TKey, TValue>.ValueCollection)source;
+            if (current.Count != expected.Count) return false;
+            int index = 0;
+            foreach (TValue value in current) if (!ElementMatches(value, expected[index++])) return false;
             return true;
         }
 
@@ -94,7 +121,14 @@ namespace LihuatLib.Mechanisms
             try
             {
                 source.CopyTo(current, 0);
-                for (int i = 0; i < count; i++) if (!ReferenceEquals(current[i], expected[i])) return false;
+                for (int i = 0; i < count; i++)
+                {
+                    object value = current[i], previous = expected[i];
+                    if (ReferenceEquals(value, previous)) continue;
+                    // ICollection.CopyTo boxes value elements anew on each inspection.
+                    if (value == null || previous == null || !value.GetType().IsValueType
+                        || value.GetType() != previous.GetType() || !value.Equals(previous)) return false;
+                }
                 return true;
             }
             finally { ArrayPool<object>.Shared.Return(current, clearArray: true); }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using HarmonyLib;
@@ -13,10 +15,14 @@ namespace LihuatLib.Mechanisms
         [ThreadStatic] private static int writing;
         internal static long Rejected { get; private set; }
 
-        internal readonly struct Scope : IDisposable
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void Run(Action action)
         {
-            internal Scope(bool enter) { if (enter) writing++; }
-            public void Dispose() { writing--; }
+            if (Assembly.GetCallingAssembly() != typeof(ExecutableWriteProtection).Assembly)
+                throw new InvalidOperationException("Executable writes require the library publication gateway.");
+            writing++;
+            try { NativeWriteOperation.Execute(action); }
+            finally { writing--; }
         }
 
         internal static void Install()

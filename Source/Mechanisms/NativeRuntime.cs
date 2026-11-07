@@ -103,13 +103,13 @@ namespace LihuatLib.Mechanisms
         {
             LibraryCapabilities.RequirePublicationThread();
             if (!entries.TryGetValue(method, out Entry entry) || !entry.Applied) throw new InvalidOperationException("Method entry has not been published.");
-            using (new ExecutableWriteProtection.Scope(true))
+            ExecutableWriteProtection.Run(() =>
             {
                 _ = CoreClrEntryAddress.Code(method);
                 NativeEntryBackend.Flush(method.MethodHandle.Value);
                 try { NativeEntryBackend.Retain(method.MethodHandle.Value, address, expected); }
                 catch (InvalidOperationException error) { throw new InvalidOperationException("Snapshot retention failed for " + method, error); }
-            }
+            });
         }
         private static void Apply(MethodBase method, Entry entry)
         {

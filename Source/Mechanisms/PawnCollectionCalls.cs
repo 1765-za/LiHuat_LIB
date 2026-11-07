@@ -7,7 +7,7 @@ using Verse;
 
 namespace LihuatLib.Mechanisms
 {
-    internal static class HediffListCalls
+    internal static class PawnCollectionCalls
     {
         private static readonly Dictionary<MethodInfo, MethodInfo> targets = CreateTargets();
         private static readonly Dictionary<MethodInfo, DynamicMethod> bridges = new();
@@ -21,6 +21,13 @@ namespace LihuatLib.Mechanisms
             result.Add(AccessTools.Method(typeof(ICollection<Hediff>), "Add"), AccessTools.Method(typeof(HediffListInsertion), "CollectionAdd"));
             result.Add(AccessTools.Method(typeof(IList<Hediff>), "Insert"), AccessTools.Method(typeof(HediffListInsertion), "ListInsert"));
             result.Add(AccessTools.PropertySetter(typeof(IList<Hediff>), "Item"), AccessTools.Method(typeof(HediffListInsertion), "ListReplace"));
+            foreach (string name in new[] { "Clear", "Remove", "RemoveAt", "RemoveAll", "RemoveRange", "set_Item" })
+                result.Add(AccessTools.Method(typeof(List<ThingComp>), name),
+                    AccessTools.Method(typeof(PawnComponentMutation), name == "set_Item" ? "Replace" : name));
+            result.Add(AccessTools.Method(typeof(ICollection<ThingComp>), "Clear"), AccessTools.Method(typeof(PawnComponentMutation), "CollectionClear"));
+            result.Add(AccessTools.Method(typeof(ICollection<ThingComp>), "Remove"), AccessTools.Method(typeof(PawnComponentMutation), "CollectionRemove"));
+            result.Add(AccessTools.Method(typeof(IList<ThingComp>), "RemoveAt"), AccessTools.Method(typeof(PawnComponentMutation), "ListRemoveAt"));
+            result.Add(AccessTools.PropertySetter(typeof(IList<ThingComp>), "Item"), AccessTools.Method(typeof(PawnComponentMutation), "ListReplace"));
             return result;
         }
         internal static bool Known(MethodInfo method) => method != null && targets.ContainsKey(method);

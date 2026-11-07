@@ -56,6 +56,7 @@ namespace LihuatLib.Mechanisms
             ThingOwner container = pawn.holdingOwner;
             Corpse corpse = container?.Owner as Corpse;
             CellRect footprint = MapRegistrationStorage.Footprint(pawn);
+            LihuatGame.Current?.Admission.Forget(pawn);
             if (stopObservers) ErasureObservers.Stop(pawn);
             ErasureRelations.Remove(pawn);
             ErasureCorpse.Retire(corpse);
@@ -65,6 +66,7 @@ namespace LihuatLib.Mechanisms
             Find.ColonistBar?.MarkColonistsDirty();
             bool result = (PawnLife.Dead(pawn) || !stopObservers && pawn.health == null)
                 && mapIndex(pawn) == -3 && pawn.markedForDiscard && pawn.holdingOwner == null
+                && LihuatGame.Current?.Admission.Contains(pawn) != true
                 && !RegistrationStorage.Process(pawn, container, footprint, false);
             if (result) Verified++;
             else { LastFailure = "Terminal state or registration retained."; Incomplete++; }

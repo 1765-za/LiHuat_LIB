@@ -15,7 +15,7 @@ namespace LihuatLib.Mechanisms
         private static readonly object sync = new();
 
         internal static bool Candidate(MethodInfo method, OpCode opcode) => (opcode == OpCodes.Call || opcode == OpCodes.Callvirt)
-            && (HediffListCalls.Known(method) || !method.IsStatic && method.DeclaringType != null
+            && (PawnCollectionCalls.Known(method) || !method.IsStatic && method.DeclaringType != null
             && typeof(Entity).IsAssignableFrom(method.DeclaringType) && ReverseLifecycle.Destructive(method)
             && (method.ReturnType == typeof(void) || method.ReturnType == typeof(bool)));
 
@@ -23,7 +23,7 @@ namespace LihuatLib.Mechanisms
         {
             guarded = null;
             if (!Candidate(method, opcode)) return false;
-            if (HediffListCalls.Known(method)) { guarded = HediffListCalls.Body(method); return true; }
+            if (PawnCollectionCalls.Known(method)) { guarded = PawnCollectionCalls.Body(method); return true; }
             lock (sync)
             {
                 var key = (method, opcode);

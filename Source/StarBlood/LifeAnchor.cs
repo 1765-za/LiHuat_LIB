@@ -71,6 +71,7 @@ namespace LihuatLib.StarBlood
                 return !(value is bool enabled) || !enabled;
             if (ReferenceEquals(target, Pawn))
             {
+                if (PawnRuntimeComponents.IsComponentRoot(field)) return !ReferenceEquals(value, Pawn.AllComps);
                 if (field.Name == nameof(Thing.def)) return !ReferenceEquals(value, definition);
                 if (field.Name == nameof(Pawn.kindDef)) return !ReferenceEquals(value, kind);
                 if (field.Name == nameof(Thing.thingIDNumber)) return !Equals(value, identity);

@@ -14,6 +14,7 @@ namespace LihuatLib.StarBlood
         internal static bool IsMoving(Thing thing) => ReferenceEquals(moving, thing);
         public static long BlockedWrites { get; private set; }
         public static long BlockedRemoval { get; private set; }
+        public static long BlockedComponentMutations { get; private set; }
         public static long RestoredStructures { get; internal set; }
         public static long RestoredRegistration { get; internal set; }
         public static long RestoredDeathState { get; internal set; }
@@ -49,6 +50,14 @@ namespace LihuatLib.StarBlood
             if (!anchor.Rejects(field, target, value)) return false;
             anchor.Dirty = true;
             BlockedWrites++;
+            return true;
+        }
+        internal static bool BlocksComponentMutation(object collection)
+        {
+            if (!Configuration.HighMechanismPolicy.Maintenance) return false;
+            Pawn pawn = LihuatGame.Current?.Subjects.Find(collection)?.Subject.Pawn;
+            if (pawn == null || !ReferenceEquals(pawn.AllComps, collection) || !Protects(pawn)) return false;
+            BlockedComponentMutations++;
             return true;
         }
         internal static void Update(Pawn pawn)

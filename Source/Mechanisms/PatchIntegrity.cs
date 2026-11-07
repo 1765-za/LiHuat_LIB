@@ -31,6 +31,7 @@ namespace LihuatLib.Mechanisms
         public static void Install()
         {
             if (installed) return;
+            Integrations.HarmonyPrefixRegistry.Initialize();
             DynamicMethod registration = IntegrityEmission.Registration(update, detour,
                 AccessTools.Method(typeof(PatchIntegrity), nameof(BeforeUpdate)),
                 AccessTools.Method(typeof(PatchIntegrity), nameof(CommitRegistered)));
@@ -89,8 +90,9 @@ namespace LihuatLib.Mechanisms
 
         private static void CommitRegistered(MethodBase method, MethodBase replacement)
         {
-            using (new ExecutableWriteProtection.Scope(true))
+            ExecutableWriteProtection.Run(() => {
                 if (!NativeIlGuards.Commit(method, replacement)) commit(method, replacement);
+            });
             if (Dispatching.NativeDispatcher.GenericControl(method) != null)
             { WrapperCommitted?.Invoke(method); return; }
             if (ProtectedDestination(method))

@@ -23,6 +23,7 @@ namespace LihuatLib.Mechanisms
         private static readonly Dictionary<MethodBase, int> installed = new Dictionary<MethodBase, int>();
         private static readonly List<Entry> entries = new List<Entry>();
         private static readonly MethodInfo gate = typeof(LifeRetirementGuard).GetMethod(nameof(Allows), BindingFlags.Static | BindingFlags.NonPublic);
+        private static readonly MethodInfo deniedBoolean = typeof(LifeRetirementGuard).GetMethod(nameof(DeniedBoolean), BindingFlags.Static | BindingFlags.NonPublic);
         private static int lastFrame = -1;
         private static int lastPublication = -1;
         private static bool pendingChanged;
@@ -118,7 +119,8 @@ namespace LihuatLib.Mechanisms
                     int tag = id;
                     int? deniedResult = LifeRetirementRecipient.ExceptionArgument(method);
                     NativeIlGuards.RegisterTransform(method, typeof(LifeRetirementGuard).FullName, NativeIlGuards.GateOrder,
-                        body => IndependentIl.Guard(method, body, gate, new[] { argument }, tag, deniedResult));
+                        body => IndependentIl.Guard(method, body, gate, new[] { argument }, tag, deniedResult,
+                            method.ReturnType == typeof(bool) ? deniedBoolean : null));
                     installed[method] = id;
                 }
                 entries[id].Recipient = recipient; entries[id].Target = target;
@@ -158,6 +160,8 @@ namespace LihuatLib.Mechanisms
             LastPreventedMethod = entries[id].Method;
             return false;
         }
+
+        private static bool DeniedBoolean(int id) => Integrations.HarmonyPrefixRegistry.Contains(entries[id].Method);
 
         private static Pawn PawnFor(Entry entry, object target) => entry.Target switch
         {

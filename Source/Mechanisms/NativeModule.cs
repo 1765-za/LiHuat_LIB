@@ -39,7 +39,7 @@ namespace LihuatLib.Mechanisms
                 if (loaded == IntPtr.Zero) throw new DllNotFoundException("Cannot load " + Path + "; Win32=" + Marshal.GetLastPInvokeError());
                 stage = "ABI initialization";
                 var initialize = (delegate* unmanaged[Cdecl]<uint, int>)Export(loaded, "LihuatNative_Initialize");
-                if (initialize(10) != 1) throw new InvalidOperationException("Native entry runtime or ABI does not match.");
+                if (initialize(11) != 1) throw new InvalidOperationException("Native entry runtime or ABI does not match.");
                 stage = "authority acquisition";
                 ulong authority = 0;
                 var claim = (delegate* unmanaged[Cdecl]<ulong*, int>)Export(loaded, "LihuatNative_Claim");

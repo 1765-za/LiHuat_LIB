@@ -43,7 +43,6 @@ namespace LihuatLib.Mechanisms
                 il.Emit(opcode, field);
                 il.Emit(reverse ? OpCodes.Ldarg_1 : OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Call, wrapCopy);
-                il.Emit(OpCodes.Call, typeof(PublishedMethod).GetMethod(nameof(PublishedMethod.Materialize), Methods));
                 replacements++;
                 return true;
             });
@@ -59,7 +58,15 @@ namespace LihuatLib.Mechanisms
             generator.Emit(OpCodes.Ldloc, result); generator.Emit(OpCodes.Ret);
             generator.MarkLabel(allowed);
             for (int i = 0; i < source.GetParameters().Length; i++) generator.Emit(OpCodes.Ldarg, (short)i);
-            generator.Emit(OpCodes.Call, body); generator.Emit(OpCodes.Ret);
+            generator.Emit(OpCodes.Call, body);
+            if (!reverse)
+            {
+                generator.Emit(OpCodes.Stloc, result);
+                generator.Emit(OpCodes.Ldarg_0); generator.Emit(OpCodes.Ldarg_1);
+                generator.Emit(OpCodes.Call, typeof(Integrations.HarmonyPrefixRegistry).GetMethod("Published", Methods));
+                generator.Emit(OpCodes.Ldloc, result);
+            }
+            generator.Emit(OpCodes.Ret);
             return wrapper;
         }
     }

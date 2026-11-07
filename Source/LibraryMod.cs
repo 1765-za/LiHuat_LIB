@@ -15,6 +15,7 @@ namespace LihuatLib
             Core.LibraryCapabilities.Enable(Core.LibraryCapability.IlDispatch | Core.LibraryCapability.RuntimeIl);
             instance = this;
             Mechanics = GetSettings<MechanismSettings>();
+            if (Mechanics.MilitaryMode) Mechanics.Apply(GameplayMechanic.All);
             HighMechanismPolicy.Initialize(Mechanics.DisabledHighMechanisms);
             Mechanisms.NativeEntryBackend.Initialize();
             Mechanisms.PatchIntegrity.Install();
@@ -23,10 +24,10 @@ namespace LihuatLib
         }
         public override string SettingsCategory() => Content.Name;
         public static void OpenMechanismSettings() => Find.WindowStack.Add(new MechanismSettingsWindow(instance));
-        internal void SelectHighMechanisms(HighMechanism disabled)
+        internal void SelectMilitaryMode(bool enabled)
         {
-            if (Mechanics.DisabledHighMechanisms == disabled) return;
-            Mechanics.SelectHighMechanisms(disabled);
+            if (Mechanics.MilitaryMode == enabled) return;
+            Mechanics.SelectMilitaryMode(enabled);
             WriteSettings();
         }
         internal void SelectScanner(AnalysisScanner scanner)
@@ -52,6 +53,8 @@ namespace LihuatLib
             listing.Begin(rect);
             try
             {
+                SelectMilitaryMode(MilitaryModeSettings.Draw(listing, Mechanics.MilitaryMode));
+                listing.GapLine();
                 ScannerSettings.Draw(listing, this);
                 listing.GapLine();
                 if (listing.ButtonText("Lihuat_MechanismsTitle".Translate())) OpenMechanismSettings();

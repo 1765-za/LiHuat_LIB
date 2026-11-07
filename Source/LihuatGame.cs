@@ -26,7 +26,7 @@ namespace LihuatLib
         {
             Lifecycle = new LifecycleChannel(Admission);
             Extensions = new Api.ExtensionHost(game, this);
-            Regeneration = new Core.RegenerationFlow(Lifecycle);
+            Regeneration = new Core.RegenerationFlow(Lifecycle, Admission);
             Presence = new Core.PawnPresenceRegistry(Admission);
             RetainedGameComponents.Register(game, this);
             if (LibraryCapabilities.Has(LibraryCapability.Lifecycle)) Lifecycle.Register(new LifecycleHandler

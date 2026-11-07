@@ -35,7 +35,7 @@ namespace LihuatLib.Mechanisms
             AppDomain.CurrentDomain.AssemblyLoad += (_, __) => changed = true;
         }
         private static bool Related(Type type) => typeof(Thing).IsAssignableFrom(type) || typeof(Hediff).IsAssignableFrom(type)
-            || type == typeof(HediffSet) || type == typeof(Pawn_HealthTracker) || type == typeof(List<Hediff>);
+            || type == typeof(HediffSet) || type == typeof(Pawn_HealthTracker) || type == typeof(List<Hediff>) || type == typeof(List<ThingComp>);
 
         internal static void Discover()
         {
@@ -61,7 +61,7 @@ namespace LihuatLib.Mechanisms
         internal static void DiscoverCallers()
         {
             if (!Configuration.HighMechanismPolicy.ScannedProtection || !LibraryCapabilities.Has(LibraryCapability.HediffProtection) || LifeAnalysisCoordinator.Shared == null) return;
-            foreach (MethodInfo target in HediffListCalls.Methods)
+            foreach (MethodInfo target in PawnCollectionCalls.Methods)
                 foreach (LifeCallEdge edge in LifeAnalysisCoordinator.Shared.CallGraph.Callers(target))
                 {
                     MethodInfo method = edge.Caller;
@@ -94,7 +94,7 @@ namespace LihuatLib.Mechanisms
         {
             if (insertion && line.operand is MethodInfo insertionCall && (line.opcode == OpCodes.Call || line.opcode == OpCodes.Callvirt
                 || line.opcode == OpCodes.Ldftn || line.opcode == OpCodes.Ldvirtftn)
-                && HediffListCalls.Replacement(insertionCall) is MethodInfo admission) return admission;
+                && PawnCollectionCalls.Replacement(insertionCall) is MethodInfo admission) return admission;
             if ((line.opcode == OpCodes.Call || line.opcode == OpCodes.Callvirt) && line.operand is MethodInfo method
                 && calls.TryGetValue(method, out MethodInfo replacement)) return replacement;
             return line.opcode == OpCodes.Stfld && Equals(line.operand, listField) ? replace : null;
@@ -110,7 +110,7 @@ namespace LihuatLib.Mechanisms
                     bool pointer = line.opcode == OpCodes.Ldftn || line.opcode == OpCodes.Ldvirtftn;
                     if (line.opcode == OpCodes.Ldvirtftn)
                     {
-                        var check = new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(HediffListCalls), nameof(HediffListCalls.RequireReceiver)));
+                        var check = new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PawnCollectionCalls), nameof(PawnCollectionCalls.RequireReceiver)));
                         check.labels.AddRange(line.labels); line.labels.Clear();
                         check.blocks.AddRange(line.blocks); line.blocks.Clear();
                         yield return check;

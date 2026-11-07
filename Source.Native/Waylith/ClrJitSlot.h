@@ -1,11 +1,12 @@
 #pragma once
 #include <cstdint>
+#include <cstddef>
 
 namespace lihuat {
 bool OwnCompilationSlot(void* compiler, void** slot, void* callback, void* continuation);
 bool RepairCompilationSlot();
 bool CompilationSlotActive();
-bool CompilationSlotOverlaps(void* address, uint32_t length);
+bool CompilationSlotOverlaps(const void* address, size_t length);
 struct JitSlotStatus {
     void* slot;
     void* current;

@@ -79,6 +79,8 @@ namespace LihuatLib.Mechanisms
                 stage = "live startup verification";
                 if (ready() != 1) throw new InvalidOperationException("CLR code-write suspension was lost during native startup.");
                 NativeStartupProof.Verify();
+                stage = "native memory method installation";
+                NativeMethodGates.Install();
                 register = nextRegister; code = nextCode; overlaps = nextOverlaps;
                 publish = nextPublish; retain = nextRetain; remove = nextRemove;
                 status = nextStatus; publication = nextPublication; notifications = nextNotifications;

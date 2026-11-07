@@ -19,7 +19,7 @@ struct EntryRoute {
 bool Readable(const void* address, size_t size, bool executable = false);
 bool TryCopy(const void* address, void* destination, size_t size);
 bool TryRead(const uint8_t* address, int64_t& value);
-bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route = nullptr);
+bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route = nullptr, bool* pending = nullptr);
 bool Exchange(uint8_t* address, int64_t expected, int64_t desired);
 bool ExchangeUnpublished(uint8_t* address, uint8_t* writable, int64_t expected, int64_t desired);
 void** AllocateRelay(void* destination);

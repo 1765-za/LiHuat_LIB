@@ -4,6 +4,7 @@
 #include <corprof.h>
 #include <atomic>
 #include "ClrProfilerRequests.h"
+#include "NativeWriteScope.h"
 
 namespace {
 struct ProfilerInfo10Layout {
@@ -21,6 +22,8 @@ HRESULT STDMETHODCALLTYPE RequestInliners(void*, DWORD, ULONG, ModuleID*, mdMeth
 HRESULT STDMETHODCALLTYPE SetIlBody(void*, ModuleID, mdMethodDef, LPCBYTE) { return E_ACCESSDENIED; }
 void* Read(const Slot& slot) { return *static_cast<void* volatile*>(slot.address); }
 bool Exchange(const Slot& slot, void* expected, void* desired) {
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     DWORD previous = 0, ignored = 0;
     if (!VirtualProtect(slot.address, sizeof(void*), PAGE_READWRITE, &previous)) return false;
     bool changed = InterlockedCompareExchangePointer(slot.address, desired, expected) == expected;

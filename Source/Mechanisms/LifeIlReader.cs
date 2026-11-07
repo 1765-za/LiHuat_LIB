@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 
 namespace LihuatLib.Mechanisms
@@ -173,32 +174,29 @@ namespace LihuatLib.Mechanisms
                     lines.Add(line); offsets.Add(offset, line); cursor = checked((int)stream.Position);
                 }
             }
-            ILGenerator labels = null;
             Dictionary<int, Label> byOffset = null;
             foreach (CodeInstruction line in lines)
             {
                 bool branch = line.opcode.OperandType == OperandType.InlineBrTarget || line.opcode.OperandType == OperandType.ShortInlineBrTarget;
                 if (!branch && !(line.operand is int[])) continue;
-                if (labels == null)
-                {
-                    labels = new DynamicMethod("LihuatAnalysisLabels", typeof(void), Type.EmptyTypes).GetILGenerator();
-                    byOffset = new Dictionary<int, Label>();
-                }
+                byOffset ??= new Dictionary<int, Label>();
                 if (branch)
-                    line.operand = LabelFor((int)line.operand, offsets, byOffset, labels);
+                    line.operand = LabelFor((int)line.operand, offsets, byOffset);
                 else if (line.operand is int[] targets)
                 {
                     var branches = new Label[targets.Length];
-                    for (int i = 0; i < targets.Length; i++) branches[i] = LabelFor(targets[i], offsets, byOffset, labels);
+                    for (int i = 0; i < targets.Length; i++) branches[i] = LabelFor(targets[i], offsets, byOffset);
                     line.operand = branches;
                 }
             }
             return lines;
         }
-        private static Label LabelFor(int offset, Dictionary<int, CodeInstruction> offsets, Dictionary<int, Label> labels, ILGenerator generator)
+        private static Label LabelFor(int offset, Dictionary<int, CodeInstruction> offsets, Dictionary<int, Label> labels)
         {
             if (!offsets.TryGetValue(offset, out CodeInstruction line)) throw new BadImageFormatException();
-            if (!labels.TryGetValue(offset, out Label label)) { labels[offset] = label = generator.DefineLabel(); line.labels.Add(label); }
+            // These labels identify destinations within one analysis graph and are never emitted.
+            if (!labels.TryGetValue(offset, out Label label))
+            { labels[offset] = label = Unsafe.BitCast<int, Label>(labels.Count); line.labels.Add(label); }
             return label;
         }
     }

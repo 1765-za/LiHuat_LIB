@@ -1,0 +1,51 @@
+{
+  "Repository": "https://github.com/TsudaKageyu/minhook",
+  "Version": "v1.3.4",
+  "Commit": "c3fcafdc10146beb5919319d0683e44e3c30d537",
+  "Files": [
+    {
+      "Path": "src/buffer.c",
+      "GitBlob": "55412b0f301ba9a5b3520343bd1313bb56592899"
+    },
+    {
+      "Path": "src/buffer.h",
+      "GitBlob": "204d551bffb7f11760bc1e474aa835e55f4cbb00"
+    },
+    {
+      "Path": "src/hook.c",
+      "GitBlob": "68a006a768c884372a34ee34043e20db079deba6"
+    },
+    {
+      "Path": "src/trampoline.c",
+      "GitBlob": "d4d6f99d9fb23d980b12eb0ba4f722e5f8377d87"
+    },
+    {
+      "Path": "src/trampoline.h",
+      "GitBlob": "bdffdac0a7bc838b52dd35733c943a9d5c7bc7b5"
+    },
+    {
+      "Path": "src/hde/hde64.c",
+      "GitBlob": "ce773b1e25f95b312a4c05f3acf053d87ec6d20c"
+    },
+    {
+      "Path": "src/hde/hde64.h",
+      "GitBlob": "ecbf4df958ac24646c0ba645ee4ba8340e8a74c8"
+    },
+    {
+      "Path": "src/hde/table64.h",
+      "GitBlob": "01d4541f97765a1fe14ad4a60f3705156abaf176"
+    },
+    {
+      "Path": "src/hde/pstdint.h",
+      "GitBlob": "84d82a012311a72f5dfb1fc88554f7820fbdf216"
+    },
+    {
+      "Path": "LICENSE.txt",
+      "GitBlob": "74dea27229c05b53b095aa22b9ee7ee9f549e414"
+    },
+    {
+      "Path": "include/MinHook.h",
+      "GitBlob": "492d83f8d6245f576a703cd6a0bd358cd3aa2d9c"
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 #include "EntryWriteIndex.h"
 #include "ClrProfilerRequests.h"
 #include "HighMechanisms.h"
+#include "NativeWriteScope.h"
 #include <windows.h>
 #include <unordered_map>
 #include <vector>
@@ -60,6 +61,8 @@ void IndexWrites() {
 API int __cdecl LihuatNative_GenericBody(uint64_t authority, void* owner, void* method,
     const uint8_t* current, uint32_t length, const uint8_t* previous, uint32_t previousLength) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     if (!owner || !method || !current || !length || length > 1048576 || previousLength > 1048576
         || (previousLength && !previous)) return -1;
     try {
@@ -94,6 +97,8 @@ API int __cdecl LihuatNative_GenericBody(uint64_t authority, void* owner, void* 
 
 API int __cdecl LihuatNative_GenericRelease(uint64_t authority, void* method) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     Exclusive lock;
     auto found = bodies.find(method);
     if (found == bodies.end()) return 0;
@@ -124,11 +129,15 @@ namespace lihuat {
 bool HasGenericBodies() { return active.load(std::memory_order_acquire); }
 bool GenericInlineBlocked(void* context, void* method) {
     if (!HasGenericBodies()) return false;
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return true;
     Shared lock;
     return Find(context, method) != nullptr;
 }
 bool GenericBodyAllowed(void* context, const MethodBodyInput& method) {
     if (!HasGenericBodies()) return true;
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     Exclusive lock;
     Body* body = Find(context, method.method);
     if (!body) return true;
@@ -139,6 +148,8 @@ bool GenericBodyAllowed(void* context, const MethodBodyInput& method) {
 }
 bool GenericBodyCompiled(void* context, void* method, void* code, uint32_t size) {
     if (!HasGenericBodies()) return true;
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     Exclusive lock;
     Body* body = Find(context, method);
     if (!body) return true;

@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using HarmonyLib;
 
 namespace LihuatLib.Configuration
 {
@@ -27,7 +29,9 @@ namespace LihuatLib.Configuration
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Initialize(HighMechanism disabled)
         {
-            if (initialized || Assembly.GetCallingAssembly() != typeof(HighMechanismPolicy).Assembly)
+            MethodBase caller = new StackFrame(1, false).GetMethod();
+            if (caller is MethodInfo replacement) caller = Harmony.GetOriginalMethod(replacement);
+            if (initialized || caller is not ConstructorInfo || caller.DeclaringType != typeof(LibraryMod))
                 throw new InvalidOperationException("High mechanisms are fixed by library startup.");
             HighMechanism selected = disabled & HighMechanism.All;
             Mechanisms.NativeHighMechanisms.Configure(selected);

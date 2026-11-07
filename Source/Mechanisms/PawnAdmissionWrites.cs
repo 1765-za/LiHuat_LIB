@@ -8,7 +8,7 @@ namespace LihuatLib.Mechanisms
     internal static class PawnAdmissionWrites
     {
         private static readonly FieldInfo mapState = AccessTools.Field(typeof(Thing), "mapIndexOrState");
-        private static readonly FieldInfo discarded = AccessTools.Field(typeof(Thing), "markedForDiscard");
+        private static readonly FieldInfo discarded = AccessTools.Field(typeof(Pawn), nameof(Pawn.markedForDiscard));
         private static readonly FieldInfo healthState = AccessTools.Field(typeof(Pawn_HealthTracker), "healthState");
         private static readonly FieldInfo healthTracker = AccessTools.Field(typeof(Pawn), nameof(Pawn.health));
         private static readonly AccessTools.FieldRef<Pawn_HealthTracker, Pawn> healthOwner =

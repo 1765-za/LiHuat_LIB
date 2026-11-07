@@ -301,7 +301,7 @@ namespace LihuatLib.Mechanisms
         {
             if (Dispatching.NativeDispatcher.GenericControl(original) != null) return true;
             if (!entries.TryGetValue(Key(original), out Entry entry)) return false;
-            if (entry.Pipeline != null) entry.Publish(PublishedMethod.Body(replacement));
+            if (entry.Pipeline != null) entry.Publish((DynamicMethod)replacement);
             return true;
         }
     }

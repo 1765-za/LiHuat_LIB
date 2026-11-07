@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Linq;
 
 namespace LihuatLib.Mechanisms
 {
@@ -41,9 +42,12 @@ namespace LihuatLib.Mechanisms
                 if (layer.BypassDeveloper) separated = true;
                 else developer = separated ? layer.Build(developer) : result;
             }
+            Type[] arguments = IndependentIl.Parameters(source);
+            if (!ReferenceEquals(result, source) && ReferenceEquals(result, developer)
+                && result is DynamicMethod direct && direct.ReturnType == source.ReturnType
+                && arguments.SequenceEqual(IndependentIl.Parameters(direct))) return direct;
             DynamicMethod wrapper = IndependentIl.New(source);
             ILGenerator il = wrapper.GetILGenerator();
-            Type[] arguments = IndependentIl.Parameters(source);
             if (!ReferenceEquals(result, developer))
             {
                 Label guarded = il.DefineLabel();

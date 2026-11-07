@@ -18,6 +18,7 @@ namespace LihuatLib.Core
             public void Dispose() => owner?.Leave(cursor, slot);
         }
         private readonly LifecycleChannel channel;
+        private readonly GenerationAdmission admission;
         private readonly ThreadLocal<Cursor> cursor = new ThreadLocal<Cursor>(() => new Cursor());
         private readonly RegenerationHistory history = new RegenerationHistory();
         private List<RegenerationLink> links = new List<RegenerationLink>();
@@ -27,7 +28,8 @@ namespace LihuatLib.Core
         public long DeniedGenerations { get; private set; }
         public int RecordedBodies => links.Count;
         public bool HasScope => cursor.IsValueCreated && cursor.Value.Count > 0;
-        internal RegenerationFlow(LifecycleChannel channel) { this.channel = channel; }
+        internal RegenerationFlow(LifecycleChannel channel, GenerationAdmission admission)
+        { this.channel = channel; this.admission = admission; }
         public string RootFor(Pawn pawn) => pawn != null && byPawn.TryGetValue(pawn, out RegenerationLink link) ? link.RootPawnId : null;
         public int CountFor(string root) => history.Count(root);
         public bool WasActivated(string root, Pawn pawn) => pawn != null
@@ -117,6 +119,7 @@ namespace LihuatLib.Core
             if (SnapshotDenied) { DeniedAdmissions++; return false; }
             if (!AllowsContext(pawn)) { DeniedAdmissions++; return false; }
             if (!byPawn.TryGetValue(pawn, out RegenerationLink link)) return true;
+            if (link.Activated && admission.Contains(pawn) && !PawnLife.Dead(pawn)) return true;
             if (channel.AllowsRegeneration(new RegenerationOrigin(pawn, link.RootPawnId, RegenerationKind.Resurrection).ForBody(pawn))) return true;
             DeniedAdmissions++; return false;
         }

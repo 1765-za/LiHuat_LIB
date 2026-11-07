@@ -14,12 +14,14 @@ namespace LihuatLib.StarBlood
         private readonly object[] originals = new object[fields.Length];
         private readonly PawnOwnedStructures owned;
         internal IEnumerable<object> Owners => owned.Nodes;
-        internal static bool IsRoot(FieldInfo field) => roots.Contains(field);
+        internal static bool IsRoot(FieldInfo field) => roots.Contains(field) || IsComponentRoot(field);
+        internal static bool IsComponentRoot(FieldInfo field) => field.DeclaringType == typeof(ThingWithComps) && field.Name == "comps";
 
         internal PawnRuntimeComponents(Pawn pawn)
         {
             for (int i = 0; i < fields.Length; i++) originals[i] = fields[i].GetValue(pawn);
             owned = new PawnOwnedStructures(pawn, originals);
+            if (pawn.AllComps.Count != 0) owned.Nodes.Add(pawn.AllComps);
         }
         internal bool Intact(Pawn pawn) => matches(pawn, originals) && owned.Intact;
         internal bool Rejects(FieldInfo field, object owner, object value) => owned.Rejects(field, owner, value);

@@ -27,7 +27,8 @@ namespace LihuatLib.Mechanisms
             return result;
         }
 
-        internal static DynamicMethod Guard(MethodInfo original, MethodInfo continuation, MethodInfo gate, int[] arguments, int? tag = null, int? deniedArgument = null)
+        internal static DynamicMethod Guard(MethodInfo original, MethodInfo continuation, MethodInfo gate, int[] arguments, int? tag = null,
+            int? deniedArgument = null, MethodInfo deniedResult = null)
         {
             if (!gate.IsStatic || gate.ReturnType != typeof(void) && gate.ReturnType != typeof(bool))
                 throw new ArgumentException("An entry gate must be static and return void or bool.", nameof(gate));
@@ -35,6 +36,10 @@ namespace LihuatLib.Mechanisms
             if (deniedArgument.HasValue && (deniedArgument.Value < 0 || deniedArgument.Value >= signature.Length
                 || original.ReturnType == typeof(void) || !original.ReturnType.IsAssignableFrom(signature[deniedArgument.Value])))
                 throw new ArgumentException("Denied return argument does not match the entry return type.");
+            if (deniedResult != null && (!tag.HasValue || deniedArgument.HasValue || !deniedResult.IsStatic
+                || deniedResult.ReturnType != original.ReturnType
+                || !deniedResult.GetParameters().Select(p => p.ParameterType).SequenceEqual(new[] { typeof(int) })))
+                throw new ArgumentException("Denied result requires a tagged static return provider.");
             ParameterInfo[] inputs = gate.GetParameters();
             int offset = tag.HasValue ? 1 : 0;
             if (inputs.Length != arguments.Length + offset || offset != 0 && inputs[0].ParameterType != typeof(int))
@@ -75,6 +80,11 @@ namespace LihuatLib.Mechanisms
                     if (original.ReturnType != typeof(void))
                     {
                         if (deniedArgument.HasValue) il.Emit(OpCodes.Ldarg, (short)deniedArgument.Value);
+                        else if (deniedResult != null)
+                        {
+                            il.Emit(OpCodes.Ldc_I4, tag.Value);
+                            il.Emit(OpCodes.Call, GeneratedIntegrity.Create(deniedResult));
+                        }
                         else
                         {
                             LocalBuilder empty = il.DeclareLocal(original.ReturnType);

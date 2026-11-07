@@ -10,7 +10,7 @@ namespace LihuatLib.Mechanisms
         internal static void Install()
         {
             if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
-            HediffListCalls.Prepare();
+            PawnCollectionCalls.Prepare();
             OwnedEmissionBoundary.Install();
             NativeIlGuards.Guard(AccessTools.Method(DynamicWriteCatalogue.GeneratorType, nameof(ILGenerator.Emit), new[] { typeof(OpCode), typeof(ConstructorInfo) }),
                 AccessTools.Method(typeof(DynamicWriteCatalogue), nameof(DynamicWriteCatalogue.ObserveConstructor)), 0, 1, 2);

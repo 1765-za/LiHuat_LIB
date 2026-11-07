@@ -7,9 +7,11 @@ namespace LihuatLib.Configuration
     {
         private GameplayMechanic disabled;
         private AnalysisScanner scanner;
-        private HighMechanism disabledHighMechanisms;
-        public HighMechanism DisabledHighMechanisms => disabledHighMechanisms;
-        internal void SelectHighMechanisms(HighMechanism value) => disabledHighMechanisms = value & HighMechanism.All;
+        private bool militaryMode;
+        public bool MilitaryMode => militaryMode;
+        public HighMechanism DisabledHighMechanisms => militaryMode ? HighMechanism.None
+            : HighMechanism.Native | HighMechanism.Scanning | HighMechanism.Maintenance;
+        internal void SelectMilitaryMode(bool value) => militaryMode = value;
         public AnalysisScanner Scanner => scanner;
         internal void SelectScanner(AnalysisScanner value)
         {
@@ -27,7 +29,7 @@ namespace LihuatLib.Configuration
         {
             Scribe_Values.Look(ref disabled, "disabledMechanics", GameplayMechanic.None);
             Scribe_Values.Look(ref scanner, "analysisScanner", AnalysisScanner.Normal);
-            Scribe_Values.Look(ref disabledHighMechanisms, "disabledHighMechanisms", HighMechanism.None);
+            Scribe_Values.Look(ref militaryMode, "militaryMode", false);
         }
     }
 }

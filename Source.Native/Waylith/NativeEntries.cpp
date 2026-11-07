@@ -10,6 +10,8 @@
 #include "GenericBodies.h"
 #include "GenerationAdmission.h"
 #include "ClrProfilerRequests.h"
+#include "NativeMethodGates.h"
+#include "NativeWriteScope.h"
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -111,10 +113,15 @@ API int __cdecl LihuatNative_ObserveCompilations(uint64_t authority, void* conti
 API uint64_t __cdecl LihuatNative_CompilationNotifications() { return lihuat::CompilationNotifications(); }
 API void* __cdecl LihuatNative_Code(void* precode) {
     void** slot; uint8_t* code;
-    return lihuat::CodeEntry(precode, slot, code) ? code : nullptr;
+    bool pending;
+    if (lihuat::CodeEntry(precode, slot, code, nullptr, &pending)) return code;
+    return pending ? precode : nullptr;
 }
 API int __cdecl LihuatNative_Initialize(uint32_t version) {
-    if (version != 10 || sizeof(void*) != 8 || GetModuleHandleW(L"coreclr.dll") == nullptr) return 0;
+    if (version != 11 || sizeof(void*) != 8 || GetModuleHandleW(L"coreclr.dll") == nullptr) return 0;
+    if (!lihuat::InitializeNativeWriteScope()) return 0;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return 0;
     if (!lihuat::InitializeNativeImage()) return 0;
     Exclusive lock;
     try { writeEntries.Reserve(MaxRecords * (InitialSites + 5 + lihuat::EntryRoute::MaxObservations)); }
@@ -123,23 +130,28 @@ API int __cdecl LihuatNative_Initialize(uint32_t version) {
 }
 
 API int __cdecl LihuatNative_Overlaps(void* address, uint32_t length) {
+    return lihuat::NativeWritesOverlap(address, length) ? 1 : 0;
+}
+
+bool lihuat::NativeWritesOverlap(const void* address, size_t length) {
     uintptr_t start = reinterpret_cast<uintptr_t>(address);
     if (!start || !length || start > UINTPTR_MAX - length) return 0;
     if (lihuat::NativeMemoryOverlaps(address, length) || lihuat::CompilationSlotOverlaps(address, length)
         || lihuat::GenericBodyOverlaps(address, length) || lihuat::ProfilerRequestsOverlaps(address, length)
-        || lihuat::GenerationAdmissionOverlaps(address, length)) return 1;
+        || lihuat::GenerationAdmissionOverlaps(address, length) || lihuat::NativeMethodGatesOverlap(address, length)) return true;
     Shared lock;
-    return writeEntries.OwnsStorage(address, length) || writeEntries.Overlaps(address, length) ? 1 : 0;
+    return writeEntries.OwnsStorage(address, length) || writeEntries.Overlaps(address, length);
 }
 
 bool lihuat::NativeOutputAllowed(const void* address, size_t length) {
     uintptr_t start = reinterpret_cast<uintptr_t>(address);
-    return start && length && length <= UINT32_MAX && length <= UINTPTR_MAX - start
-        && !LihuatNative_Overlaps(const_cast<void*>(address), static_cast<uint32_t>(length));
+    return start && length && length <= UINTPTR_MAX - start && !NativeWritesOverlap(address, length);
 }
 
 API int __cdecl LihuatNative_Register(uint64_t authority, void* key, void* precode, uint8_t* previous, int64_t expected, uint8_t* control) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     lihuat::CodeWriteScope writing;
     if (!writing) return -9;
     Exclusive lock;
@@ -173,6 +185,8 @@ API int __cdecl LihuatNative_Register(uint64_t authority, void* key, void* preco
 
 API int __cdecl LihuatNative_Publish(uint64_t authority, void* key, uint8_t* previous, int64_t expected, uint8_t* control) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     lihuat::CodeWriteScope writing;
     if (!writing) return -9;
     Exclusive lock;
@@ -217,6 +231,8 @@ API int __cdecl LihuatNative_Publish(uint64_t authority, void* key, uint8_t* pre
 
 API int __cdecl LihuatNative_Retain(uint64_t authority, void* key, uint8_t* address, int64_t expected) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     lihuat::CodeWriteScope writing;
     if (!writing) return -9;
     Exclusive lock;
@@ -269,6 +285,8 @@ uint64_t lihuat::CompilationGeneration(void* key) {
     return found == registry.end() ? 0 : found->second->generation;
 }
 bool lihuat::Compiled(void* key, uint64_t generation, uint8_t* code, uint64_t size, uint8_t* writable) {
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     if (key == publishing) return true;
     if (!generation) {
         Shared lock;
@@ -311,6 +329,8 @@ API int __cdecl LihuatNative_Flush(uint64_t authority, void*) {
 
 API int __cdecl LihuatNative_Remove(uint64_t authority, void* key) {
     if (!lihuat::Authorized(authority)) return -10;
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return -11;
     lihuat::CodeWriteScope writing;
     if (!writing) return 0;
     Exclusive lock;

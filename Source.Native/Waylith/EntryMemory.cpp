@@ -3,9 +3,12 @@
 #include <cstring>
 #include "ClrSuspension.h"
 #include "NativeMemoryOwnership.h"
+#include "NativeWriteScope.h"
 
 namespace lihuat {
 bool Readable(const void* address, size_t size, bool executable) {
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     MEMORY_BASIC_INFORMATION memory{};
     if (!address || !size || VirtualQuery(address, &memory, sizeof(memory)) != sizeof(memory)
         || memory.State != MEM_COMMIT || (memory.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
@@ -16,6 +19,8 @@ bool Readable(const void* address, size_t size, bool executable) {
 }
 
 bool TryCopy(const void* address, void* destination, size_t size) {
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     SIZE_T copied = 0;
     return address && size && ReadProcessMemory(GetCurrentProcess(), address, destination, size, &copied) && copied == size;
 }
@@ -42,7 +47,8 @@ const uint8_t* EntryRoute::Observe(const void* address, size_t size, size_t writ
     return value.bytes;
 }
 
-bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route) {
+bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route, bool* pending) {
+    if (pending) *pending = false;
     if (route && route->Matches(precode)) { slot = route->slot; body = route->body; return true; }
     if (route) { route->count = 0; route->body = nullptr; ++route->revision; }
     auto entry = static_cast<uint8_t*>(precode);
@@ -60,6 +66,7 @@ bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route) {
         if (!bytes) return false;
         memcpy(&body, bytes, sizeof(body));
     } else if (!TryCopy(slot, &body, sizeof(body))) return false;
+    if (body == entry + 6) { if (pending) *pending = true; return false; }
     for (size_t hop = 0; Readable(body, 24, true); ++hop) {
         const uint8_t* bodyBytes = route ? route->Observe(body, 24, 16) : TryCopy(body, direct, 24) ? direct : nullptr;
         if (!bodyBytes) return false;
@@ -77,11 +84,13 @@ bool CodeEntry(void* precode, void**& slot, uint8_t*& body, EntryRoute* route) {
         memcpy(&targetOffset, bodyBytes + instructionEnd - 4, sizeof(targetOffset));
         auto target = reinterpret_cast<void**>(body + instructionEnd + targetOffset);
         if ((reinterpret_cast<uintptr_t>(target) & 7) || !Readable(target, sizeof(void*))) return false;
+        uint8_t* prestub = precodeThunk ? body + 6 : nullptr;
         if (route) {
             const uint8_t* bytes = route->Observe(target, sizeof(void*));
             if (!bytes) return false;
             memcpy(&body, bytes, sizeof(body));
         } else if (!TryCopy(target, &body, sizeof(body))) return false;
+        if (body == prestub && prestub) { if (pending) *pending = true; return false; }
     }
     if (body == precode || (reinterpret_cast<uintptr_t>(body) & 7) || !Readable(body, 8, true)) return false;
     if (route) {
@@ -97,6 +106,8 @@ bool Exchange(uint8_t* address, int64_t expected, int64_t desired) {
 }
 
 bool ExchangeUnpublished(uint8_t* address, uint8_t* writable, int64_t expected, int64_t desired) {
+    NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     if ((reinterpret_cast<uintptr_t>(address) & 7) || !Readable(address, 8, true)) return false;
     if (!writable || (reinterpret_cast<uintptr_t>(writable) & 7) || !Readable(writable, 8)) return false;
     DWORD previous = 0, ignored = 0;

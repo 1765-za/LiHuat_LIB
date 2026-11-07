@@ -37,7 +37,7 @@ namespace LihuatLib.Mechanisms
         private static Delegate Publish(MethodInfo method, Delegate result)
         {
             if (result != null && DynamicWriteCatalogue.Ready && !DynamicWriteCatalogue.Building
-                && HediffListCalls.Body(method) is DynamicMethod collection)
+                && PawnCollectionCalls.Body(method) is DynamicMethod collection)
                 return result.GetType().GetMethod("Invoke").GetParameters().Length == collection.GetParameters().Length
                     ? collection.CreateDelegate(result.GetType()) : collection.CreateDelegate(result.GetType(), result.Target);
             if (result == null || !GeneratedMethodCatalogue.TryGet(method, out var policy)) return result;
@@ -63,7 +63,7 @@ namespace LihuatLib.Mechanisms
                     policy.Authority || policy.Fields.Any(GeneratedIntegrity.Owns)))).Method : GeneratedMethodBody.For(method);
         }
 
-        internal static DynamicMethod InvocationBody(MethodInfo method) => HediffListCalls.Body(method)
+        internal static DynamicMethod InvocationBody(MethodInfo method) => PawnCollectionCalls.Body(method)
             ?? (GeneratedMethodCatalogue.TryGet(method, out _) ? GeneratedMethodBody.For(method) : null);
 
         internal static object Invoke(DynamicMethod body, MethodInfo method, object instance, BindingFlags flags, Binder binder,

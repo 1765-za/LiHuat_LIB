@@ -30,7 +30,7 @@ namespace LihuatLib.Mechanisms
                 && ObjectAddressCalls.Replacement(raw) is MethodInfo guarded)
             { il.Emit(OpCodes.Call, guarded); return true; }
             if ((opcode == OpCodes.Call || opcode == OpCodes.Callvirt) && operand is MethodInfo method
-                && HediffListCalls.Replacement(method) is MethodInfo insertion)
+                && PawnCollectionCalls.Replacement(method) is MethodInfo insertion)
             { il.Emit(OpCodes.Call, insertion); return true; }
             if (operand is not FieldInfo field || !GeneratedMethodCatalogue.Sensitive(field)) return false;
             bool address = opcode == OpCodes.Ldflda || opcode == OpCodes.Ldsflda;

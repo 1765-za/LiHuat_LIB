@@ -19,6 +19,7 @@ namespace LihuatLib.Core
         {
             if (assembly == null) throw new System.ArgumentNullException(nameof(assembly));
             MethodBase caller = new StackFrame(1, false).GetMethod();
+            if (caller is MethodInfo replacement) caller = HarmonyLib.Harmony.GetOriginalMethod(replacement);
             Assembly callerAssembly = caller?.DeclaringType?.Assembly;
             lock (assemblies)
             {

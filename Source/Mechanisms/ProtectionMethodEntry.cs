@@ -18,7 +18,7 @@ namespace LihuatLib.Mechanisms
 
         internal void Publish(MethodInfo method)
         {
-            using (new ExecutableWriteProtection.Scope(true))
+            ExecutableWriteProtection.Run(() =>
             {
                 if (!NativeRuntime.TryInitialize()) throw new InvalidOperationException(NativeRuntime.Failure);
                 try
@@ -29,15 +29,12 @@ namespace LihuatLib.Mechanisms
                     Failure = null;
                 }
                 catch (Exception error) { Failure = error.GetType().Name + ": " + error.Message; throw; }
-            }
+            });
         }
 
         internal void Rollback()
         {
-            using (new ExecutableWriteProtection.Scope(true))
-            {
-                native.Rollback();
-            }
+            ExecutableWriteProtection.Run(native.Rollback);
         }
     }
 }

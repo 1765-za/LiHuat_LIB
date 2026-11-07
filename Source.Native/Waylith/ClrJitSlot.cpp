@@ -3,6 +3,7 @@
 #include <atomic>
 #include "ClrJitSlot.h"
 #include "NativeMemoryOwnership.h"
+#include "NativeWriteScope.h"
 
 namespace {
 SRWLOCK slotLock = SRWLOCK_INIT;
@@ -25,6 +26,8 @@ void* Read(void* address) {
 }
 
 bool Publish() {
+    lihuat::NativeWriteScope nativeWrite;
+    if (!nativeWrite) return false;
     if (Read(compilerObject) != compilerSlot) { failures.fetch_add(1); return false; }
     if (Read(compilerSlot) == control) return true;
     DWORD protection = 0, ignored = 0;
@@ -76,7 +79,7 @@ bool lihuat::RepairCompilationSlot() {
     return Publish();
 }
 
-bool lihuat::CompilationSlotOverlaps(void* address, uint32_t length) {
+bool lihuat::CompilationSlotOverlaps(const void* address, size_t length) {
     uintptr_t start = reinterpret_cast<uintptr_t>(address);
     if (!prepared.load(std::memory_order_acquire) || !start || !length || start > UINTPTR_MAX - length) return false;
     auto overlaps = [start, length](const void* target) {
