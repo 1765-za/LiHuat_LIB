@@ -151,9 +151,10 @@ reflection/private-member contracts or native defenses. See the
 [reproducible probe and exact limits](provisional-reference-build.md).
 
 The later .NET 10 profiler test also verifies startup loading and real
-suspension/resume locally. Its external dynamic-attach test targets only a
-disposable child and runs strictly in CI; local AF_UNIX socket creation is
-denied by the cloud sandbox before attachment. See
+suspension/resume locally. Strict CI also runs external attachment to a
+disposable child and a linked-production `Request`/`Connect` self-transport
+test against a real .NET process using the separate support profiler. Local
+AF_UNIX socket creation is denied by the cloud sandbox before attachment. See
 [profiler validation and limits](linux-profiler.md). This does not validate the
 full engine's self-attach path or mutation authority.
 

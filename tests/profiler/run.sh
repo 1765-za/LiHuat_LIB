@@ -16,6 +16,7 @@ export DOTNET_EnableDiagnostics_IPC=1 DOTNET_EnableDiagnostics_Profiler=1
 dotnet build "$root/tests/profiler/ProfilerSmoke.csproj" -c Release -o "$build/profiler-smoke"
 dotnet restore "$root/tests/profiler-attach/AttachDriver.csproj" --locked-mode --source https://api.nuget.org/v3/index.json
 dotnet build "$root/tests/profiler-attach/AttachDriver.csproj" --no-restore -c Release -o "$build/profiler-attach"
+dotnet build "$root/tests/profiler-self-transport/ProfilerSelfTransport.csproj" -c Release -o "$build/profiler-self-transport"
 export LD_LIBRARY_PATH="$build${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Keep the SDK/compiler processes outside profiling; profile only the test app.
 CORECLR_ENABLE_PROFILING=0 timeout 30s dotnet "$build/profiler-smoke/ProfilerSmoke.dll" --disabled
@@ -25,3 +26,7 @@ CORECLR_PROFILER_PATH="$build/libLihuatProfilerSupport.so" \
 timeout 30s dotnet "$build/profiler-smoke/ProfilerSmoke.dll"
 timeout 35s dotnet "$build/profiler-attach/AttachDriver.dll" \
     "$build/profiler-smoke/ProfilerSmoke.dll" "$build/libLihuatProfilerSupport.so"
+# A separate disposable process uses the linked production Request/Connect
+# implementation against its own default CLR socket, with the support CLSID.
+timeout --kill-after=5s 35s dotnet "$build/profiler-self-transport/ProfilerSelfTransport.dll" \
+    "$build/libLihuatProfilerSupport.so"

@@ -66,7 +66,7 @@ With the libraries and harness in `build/linux-x64` and a .NET 10 SDK installed:
 bash tests/profiler/run.sh build/linux-x64
 ```
 
-This builds both managed test projects outside profiling and runs three cases:
+This builds the managed test projects outside profiling and runs four cases:
 
 1. Disabled-profiler rejection in a fresh process.
 2. Startup loading with profiling enabled, followed by the native harness above.
@@ -77,12 +77,25 @@ This builds both managed test projects outside profiling and runs three cases:
    above and the absolute support-library path. The child requires readiness
    from `ProfilerAttachComplete` and repeats the real suspension/resume tests.
    The driver requires both a zero child exit code and its final PASS marker.
+4. Managed self-transport in another disposable process. The
+   `ProfilerSelfTransport` project links the unchanged production
+   `Source/Mechanisms/ClrProfilerAttach.cs` and invokes its private `Request`
+   using reflection, as the existing mock tests do. This time its `Connect` and
+   `LinuxDiagnosticEndpoint` reach the real process's default diagnostic socket,
+   with the support CLSID and DSO path. The test requires initial unreadiness,
+   HRESULT `S_OK`, subsequent support readiness and the native suspension
+   harness, including heartbeat recovery. It does not accept another PID or
+   replace the runtime's socket. A throwing `NativeModule` compile boundary
+   makes accidental entry into full `Attach`/`Send`/`Bind` fail explicitly.
 
 The driver never accepts an arbitrary PID. It removes inherited startup-profiler
 and diagnostic-port settings for its child, has a 25-second deadline and kills
 the child on failure. `run.sh` also clears profiling before SDK/build processes.
 Startup/disabled runs have 30-second external timeouts; the entire attach driver
-has a 35-second external timeout. Output records the actual runtime and
+and standalone self-transport process each have a 35-second external timeout.
+The self-transport watchdog additionally sends SIGKILL after a five-second
+termination grace period; its request has a 10-second cancellation deadline.
+Output records the actual runtime and
 architecture. No timeout or attach failure is converted to a skip or success.
 
 The driver uses the official NuGet package
@@ -97,14 +110,17 @@ Local verification on Debian 13 x86-64, SDK 10.0.100/runtime 10.0.0: strict nati
 COM contracts, disabled rejection, startup loading and real suspension/resume
 pass. Local dynamic attachment is blocked before profiler loading because this
 cloud sandbox denies AF_UNIX socket creation with `EPERM`; no target diagnostic
-socket is created. The strict CI runtime-contracts job runs all three cases on
-Ubuntu and must succeed for its exact commit before claiming external attach
+socket is created. The strict CI runtime-contracts job runs all four cases on
+Ubuntu and must succeed for its exact commit before claiming either attach
 integration passed. No sandbox security settings are changed.
 
-**Scope:** external attachment to this separate support module is not production
-self-attachment. The full backend uses a different CLSID/export contract and
-still requires integration of its own transport, mutation authority and lifetime
-rules. This test does not establish detachment behavior, game/JIT/Harmony
+**Scope:** these support-module attach tests are not validation of the full
+production `Attach`/`Send` path. In particular, the self-transport test does not
+execute `NativeModule.Bind`, `LihuatNative_SuspensionReady`, the production
+primary/notification CLSIDs, or the `AlreadyActive` fallback. The full backend
+uses a different CLSID/export contract and still requires integration with
+mutation authority and lifetime rules. These tests do not establish detachment
+behavior, game/JIT/Harmony
 compatibility, private-runtime API validity, protection coverage or a usable
 ABI-11 Linux backend. Passing on a stock .NET 10 patch runtime does not establish
 RimWorld host compatibility.
