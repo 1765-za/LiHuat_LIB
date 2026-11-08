@@ -124,3 +124,8 @@ behavior, game/JIT/Harmony
 compatibility, private-runtime API validity, protection coverage or a usable
 ABI-11 Linux backend. Passing on a stock .NET 10 patch runtime does not establish
 RimWorld host compatibility.
+
+The separate [attachment-decision assessment](attach-readiness.md) documents
+the full backend's weaker readiness probe and a retained conservative
+`AlreadyActive` branch inconsistency. Its controlled tests do not upgrade the
+native readiness guarantees described above.

@@ -34,6 +34,8 @@ jobs:
         run: bash tools/fetch_clr_headers.sh
       - name: Verify source JIT contract and native profiler COM contracts
         run: make jit-contracts profiler-contracts
+      - name: Controlled managed attachment decision contracts
+        run: timeout --kill-after=5s 90s dotnet run --project Tests/AttachDecision/AttachDecision.csproj --configuration Release
       - name: Real profiler startup, external attach, self-transport and suspension
         run: make profiler-integration
       - name: Portable managed project and fingerprint tests
