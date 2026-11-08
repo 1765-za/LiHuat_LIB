@@ -38,3 +38,13 @@ jobs:
         run: make profiler-integration
       - name: Portable managed project and fingerprint tests
         run: python3 Tests/BuildMetadata/test_build_metadata.py
+  provisional-reference-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.100'
+      - name: Compile against hash-pinned candidate references (no runtime certification)
+        run: python3 tools/probe_reference_compile.py

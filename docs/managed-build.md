@@ -43,6 +43,14 @@ that native ABI 11 is unvalidated. The platform support library cannot stand in
 for the full native backend. Real host startup, protection, JIT and authority
 checks must pass before calling the mod usable.
 
+## Optional compile-only reference snapshot
+
+A separate [hash-pinned reference probe](provisional-reference-build.md) can
+compile current sources with Krafs.Rimworld.Ref 1.7.4984-unstable and Lib.Harmony
+3.0.0-rc.3. It is an opt-in compiler check, not a replacement for the exact host
+references above. Production project dependencies and runtime checks are unchanged.
+The probe output must not be deployed as a game-ready release.
+
 ## Analysis cache fingerprint
 
 `LifeAnalysisDiskCache` requires exactly one `LifeAnalysisPolicy` assembly

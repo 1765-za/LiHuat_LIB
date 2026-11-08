@@ -140,6 +140,16 @@ The local support binary imports GLIBC up to 2.38 and GLIBCXX up to 3.4.11;
 rebuild on the oldest supported distribution before distributing a binary.
 No universal Linux binary compatibility is claimed.
 
+## Later provisional managed compile
+
+A bounded Linux compile using SDK 10.0.100, Krafs.Rimworld.Ref
+1.7.4984-unstable and Lib.Harmony 3.0.0-rc.3 successfully compiled all 599 source
+items at commit `3d35a5d`, with no compiler errors. The earlier local note about
+unavailable managed compilation describes the initial foundation environment.
+This newer result does not validate the target game, Ludeon's custom runtime,
+reflection/private-member contracts or native defenses. See the
+[reproducible probe and exact limits](provisional-reference-build.md).
+
 ## Remaining work before a usable libLihuatNative.so
 
 1. Confirm host CoreCLR/JIT/Harmony versions and supply the four real reference
