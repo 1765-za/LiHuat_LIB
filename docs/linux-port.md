@@ -17,9 +17,11 @@ This is not a Mono port, ARM64 port, or Wine DLL build.
   inaccessible pointers. A denied syscall is not replaced with unsafe `memcpy`.
 - Kernel random bytes through `getrandom`.
 - An aligned eight-byte compare/exchange with original permission restoration,
-  only for **unpublished** code in the same private mapping. It deliberately
-  rejects unrelated executable/write addresses. It does not suspend CoreCLR,
-  authorize a caller, or support shared/double-mapped CoreCLR code heaps yet.
+  only for **unpublished** code. It accepts the same private mapping or shared
+  executable/write views with matching device, inode and exact file offsets.
+  Unrelated mappings, different offsets and private-COW aliases are rejected.
+  Mapping/backing-file lifetime must be held stable by the caller. This helper
+  itself does not suspend CoreCLR or authorize a write.
 - Low-2-GiB, process-lifetime relay slots and the actual eight-byte x86-64
   indirect branch encoding. Slots are synchronized and never reused.
 - RX forwarding thunks for explicitly verified SysV signatures with the
@@ -64,6 +66,22 @@ with all 95 callback methods and a reproducible generator. See
 [profiler-build-inputs.md](profiler-build-inputs.md). Initialization defaults to
 failure until implemented by the concrete profiler; it is not a fake profiler.
 
+### Real profiler support and restored managed project
+
+A separate `libLihuatProfilerSupport.so` now supplies a real Linux CoreCLR
+profiler factory and Info10 lifecycle, plus strictly unmanaged-thread suspension
+with ownership/nesting/cleanup. It is not wired into the complete ABI-11 engine.
+See [linux-profiler.md](linux-profiler.md) for contracts and tests.
+
+The managed net10.0 project and a portable cache fingerprint target are restored
+from the older Star Company build metadata, adapted to current sources without
+copying ABI-10 code or Windows scripts. All four real game/Harmony references are
+required for actual compilation. See [managed-build.md](managed-build.md).
+
+A compiler-based JIT contract audit compares the current source GUID, six vtable
+slots and structure offsets against official .NET 10 headers. It does not verify
+every method signature, an installed game JIT, or full hook behavior.
+
 ## Build and validation
 
 Requirements: Linux x86_64, GCC with C++17, GNU make, Python 3, binutils and
@@ -76,6 +94,11 @@ make test
 make sanitize
 # Managed plumbing only, with a separately installed .NET 8+ SDK:
 dotnet run --project Tests/ManagedPlatform/ManagedPlatform.csproj
+# Optional .NET 10 profiler/source-contract tests:
+bash tools/fetch_clr_headers.sh
+make jit-contracts profiler-contracts
+make profiler-integration
+python3 Tests/BuildMetadata/test_build_metadata.py
 ```
 
 A branch CI workflow runs the strict native checks and the managed smoke project
@@ -119,17 +142,19 @@ No universal Linux binary compatibility is claimed.
 
 ## Remaining work before a usable libLihuatNative.so
 
-1. Supply/confirm the full managed build project, host CoreCLR/JIT/Harmony
-   versions and reference assemblies. The old root `LihuatNative.cpp` is Mono
+1. Confirm host CoreCLR/JIT/Harmony versions and supply the four real reference
+   assemblies to the restored managed project. The old root `LihuatNative.cpp` is Mono
    ABI 1 and is not a substitute for Waylith ABI 11.
-2. Integrate official PAL/CLR profiler interfaces consistently, resolve the old
-   Windows SDK handwritten-interface duplication, and implement/test Linux
-   profiler lifecycle, suspension and resumption with real callbacks.
+2. Integrate the separate official-interface Linux profiler support into the
+   full engine and validate dynamic attachment and lifecycle alongside its
+   mutation authority. The old Windows SDK wrappers cannot be included with
+   modern duplicate interface declarations.
 3. Port registry/authority/write-scope and JIT publication to the Linux platform
    layer; validate precode/call-counting formats, JIT GUID, every vtable slot and
    SysV return conventions against the exact target runtime.
-4. Implement shared/double-mapped executable heaps without assuming two virtual
-   addresses alias the same storage; validate write authorization and rollback.
+4. Integrate the tested shared-alias primitive with actual CoreCLR code heaps;
+   validate allocation lifetime, suspension, write authorization and rollback
+   in the full engine rather than relying on the standalone mapping test.
 5. Replace the Windows MinHook/ntdll/kernelbase interception design with a real
    Linux protection backend. No no-op gate implementation is supplied, and no
    equivalent threat coverage has been established.

@@ -1,0 +1,31 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == ''">$(MSBuildThisFileDirectory)../build/managed/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>lihuat_lib</AssemblyName>
+    <RootNamespace>LihuatLib</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>embedded</DebugType>
+    <Optimize>true</Optimize>
+    <Deterministic>true</Deterministic>
+    <OutputPath Condition="'$(OutputPath)' == ''">$(MSBuildThisFileDirectory)../build/managed/$(Configuration)/</OutputPath>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(LIHUAT_GAME_MANAGED)</RimWorldManaged>
+    <HarmonyDir Condition="'$(HarmonyDir)' == ''">$(LIHUAT_HARMONY_DIR)</HarmonyDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityStubs"><HintPath>$(RimWorldManaged)/UnityStubs.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Waylith"><HintPath>$(RimWorldManaged)/Waylith.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(HarmonyDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <AssemblyMetadata Include="LihuatBuildScope" Value="managed-only; native ABI 11 unvalidated" />
+  </ItemGroup>
+  <Import Project="AnalysisPolicy.targets" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Target Name="ReportManagedOnlyBuild" AfterTargets="Build">
+    <Message Importance="high" Text="Managed assembly only. This does not build, certify or install the Linux native ABI 11 backend. Runtime integration remains unvalidated." />
+  </Target>
+</Project>

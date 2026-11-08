@@ -11,6 +11,8 @@ struct Region {
     uintptr_t begin = 0, end = 0;
     int protection = 0;
     bool privateMapping = false;
+    uint64_t fileOffset = 0, inode = 0;
+    unsigned deviceMajor = 0, deviceMinor = 0;
 };
 size_t PageSize() noexcept;
 bool Query(const void* address, Region& region) noexcept;
@@ -21,9 +23,10 @@ bool RandomBytes(void* destination, size_t bytes) noexcept;
 
 // ONLY for code not visible to another thread. This does not suspend CoreCLR or
 // authorize a write. A live-code caller must first provide real runtime suspension.
-// This first port accepts only a single private mapping (executable == writable);
-// CoreCLR shared/double-mapped code heaps require a separate validated implementation.
-// Caller owns mapping lifetime and must exclude concurrent mprotect/munmap.
+// Supports one private mapping or shared aliases with matching device/inode and
+// exact backing-file offsets. Unrelated/private-COW aliases are rejected.
+// Caller owns mapping/backing-file lifetime and must exclude concurrent
+// mprotect/munmap/remap/truncation. This is not an authorization boundary.
 bool ExchangeUnpublished(uint8_t* executable, uint8_t* writable,
                          int64_t expected, int64_t desired) noexcept;
 // Process-lifetime slots, never reused: an in-flight jump may still hold an old slot.

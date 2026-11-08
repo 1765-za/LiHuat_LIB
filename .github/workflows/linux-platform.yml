@@ -22,3 +22,19 @@ jobs:
       - name: Whitespace validation
         run: git diff --check
 # These jobs deliberately test the foundation, not the unavailable ABI-11 engine.
+  runtime-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Fetch pinned official CLR interfaces
+        run: bash tools/fetch_clr_headers.sh
+      - name: Verify source JIT contract and native profiler COM contracts
+        run: make jit-contracts profiler-contracts
+      - name: Real CoreCLR profiler startup and suspension integration
+        run: make profiler-integration
+      - name: Portable managed project and fingerprint tests
+        run: python3 Tests/BuildMetadata/test_build_metadata.py

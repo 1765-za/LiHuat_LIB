@@ -1,0 +1,107 @@
+<Project>
+  <!-- Cache policy v2: content hashes, portable logical names and ordinal ordering.
+       This is a cache invalidation key, NOT native ABI or runtime certification. -->
+  <PropertyGroup>
+    <AnalysisPolicyRoot>$(MSBuildThisFileDirectory)</AnalysisPolicyRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <AnalysisPolicyReference Include="$(RimWorldManaged)/Assembly-CSharp.dll"><LogicalName>references/Assembly-CSharp.dll</LogicalName></AnalysisPolicyReference>
+    <AnalysisPolicyReference Include="$(RimWorldManaged)/UnityStubs.dll"><LogicalName>references/UnityStubs.dll</LogicalName></AnalysisPolicyReference>
+    <AnalysisPolicyReference Include="$(RimWorldManaged)/Waylith.dll"><LogicalName>references/Waylith.dll</LogicalName></AnalysisPolicyReference>
+    <AnalysisPolicyReference Include="$(HarmonyDir)/0Harmony.dll"><LogicalName>references/0Harmony.dll</LogicalName></AnalysisPolicyReference>
+  </ItemGroup>
+  <Target Name="ValidateManagedReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(RimWorldManaged)' == ''" Text="Set -p:RimWorldManaged=/path/to/game-managed-directory or LIHUAT_GAME_MANAGED. Supply the real Assembly-CSharp.dll, UnityStubs.dll and Waylith.dll from the target host." />
+    <Error Condition="'$(HarmonyDir)' == ''" Text="Set -p:HarmonyDir=/path/to/harmony-directory or LIHUAT_HARMONY_DIR. Supply the real target-host 0Harmony.dll." />
+    <Error Condition="!Exists('%(AnalysisPolicyReference.Identity)')" Text="Missing required managed reference: %(AnalysisPolicyReference.Identity). Check RimWorldManaged/LIHUAT_GAME_MANAGED and HarmonyDir/LIHUAT_HARMONY_DIR. Do not substitute generated stubs or unrelated assembly versions." />
+  </Target>
+  <UsingTask TaskName="LihuatComputePolicyFingerprint" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Inputs ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Settings ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Root ParameterType="System.String" Required="true" />
+      <Manifest ParameterType="System.String" Required="true" />
+      <Digest ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        try
+        {
+            var lines = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            string root = Path.GetFullPath(Root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            using (var sha = SHA256.Create())
+            {
+                foreach (var input in Inputs)
+                {
+                    string path = Path.GetFullPath(input.ItemSpec);
+                    if (!File.Exists(path)) throw new InvalidOperationException("Missing fingerprint input: " + path);
+                    string name = input.GetMetadata("LogicalName");
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        if (!path.StartsWith(root, StringComparison.Ordinal))
+                            throw new InvalidOperationException("Fingerprint source is outside Source; give it an explicit LogicalName: " + path);
+                        name = "source/" + path.Substring(root.Length).Replace('\\', '/');
+                    }
+                    if (name.IndexOfAny(new[] {'\r', '\n', '=', '|'}) >= 0 || lines.ContainsKey("file:" + name))
+                        throw new InvalidOperationException("Invalid or duplicate fingerprint logical name: " + name);
+                    using (var stream = File.OpenRead(path))
+                        lines.Add("file:" + name, BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant());
+                }
+                if (lines.Count == 0) throw new InvalidOperationException("No fingerprint inputs were supplied.");
+                foreach (var setting in Settings)
+                {
+                    string name = setting.ItemSpec;
+                    // Base64 preserves delimiters and line breaks in compiler settings unambiguously.
+                    lines.Add("setting:" + name, Convert.ToBase64String(Encoding.UTF8.GetBytes(setting.GetMetadata("Value"))));
+                }
+                string content = "lihuat-analysis-policy-v2\n" + string.Join("\n", lines.Select(p => p.Key + "=" + p.Value)) + "\n";
+                byte[] bytes = new UTF8Encoding(false).GetBytes(content);
+                Digest = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(Manifest)));
+                if (!File.Exists(Manifest) || File.ReadAllText(Manifest) != content)
+                    File.WriteAllText(Manifest, content, new UTF8Encoding(false));
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError("Cannot generate LifeAnalysisPolicy: " + ex.Message);
+            return false;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="FingerprintAnalysisPolicy" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ValidateManagedReferences">
+    <ItemGroup>
+      <!-- Include the complete managed source tree. Missing glob matches cannot
+           silently drop the core cache implementation or build configuration. -->
+      <_PolicySource Include="$(AnalysisPolicyRoot)**/*.cs" Exclude="$(AnalysisPolicyRoot)bin/**;$(AnalysisPolicyRoot)obj/**;$(BaseIntermediateOutputPath)**;$(OutputPath)**" />
+      <_PolicySource Include="$(AnalysisPolicyRoot)AnalysisPolicy.targets;$(AnalysisPolicyRoot)lihuat_lib.csproj" />
+      <_PolicySetting Include="SDK"><Value>$(NETCoreSdkVersion)</Value></_PolicySetting>
+      <_PolicySetting Include="TargetFramework"><Value>$(TargetFramework)</Value></_PolicySetting>
+      <_PolicySetting Include="LangVersion"><Value>$(LangVersion)</Value></_PolicySetting>
+      <_PolicySetting Include="Optimize"><Value>$(Optimize)</Value></_PolicySetting>
+      <_PolicySetting Include="DefineConstants"><Value>$(DefineConstants)</Value></_PolicySetting>
+      <_PolicySetting Include="AllowUnsafeBlocks"><Value>$(AllowUnsafeBlocks)</Value></_PolicySetting>
+      <_PolicySetting Include="Nullable"><Value>$(Nullable)</Value></_PolicySetting>
+      <_PolicySetting Include="CheckForOverflowUnderflow"><Value>$(CheckForOverflowUnderflow)</Value></_PolicySetting>
+      <_PolicySetting Include="PlatformTarget"><Value>$(PlatformTarget)</Value></_PolicySetting>
+      <_PolicySetting Include="RuntimeIdentifier"><Value>$(RuntimeIdentifier)</Value></_PolicySetting>
+      <_PolicySetting Include="NativeCertification"><Value>none-managed-only</Value></_PolicySetting>
+    </ItemGroup>
+    <Error Condition="!Exists('$(AnalysisPolicyRoot)Mechanisms/LifeAnalysisDiskCache.cs')" Text="Missing required analysis source Mechanisms/LifeAnalysisDiskCache.cs; use a complete source checkout." />
+    <LihuatComputePolicyFingerprint Inputs="@(_PolicySource);@(AnalysisPolicyReference)" Settings="@(_PolicySetting)" Root="$(AnalysisPolicyRoot)" Manifest="$(IntermediateOutputPath)analysis-policy.txt">
+      <Output TaskParameter="Digest" PropertyName="LifeAnalysisPolicyDigest" />
+    </LihuatComputePolicyFingerprint>
+    <ItemGroup>
+      <AssemblyMetadata Remove="LifeAnalysisPolicy" />
+      <AssemblyMetadata Include="LifeAnalysisPolicy" Value="$(LifeAnalysisPolicyDigest)" />
+    </ItemGroup>
+  </Target>
+</Project>

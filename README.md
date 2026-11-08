@@ -2,7 +2,7 @@
 
 **当前为 Linux x86_64 移植开发分支，还不能直接放进游戏使用。**
 
-已增加 Linux 内存/ELF/跳板基础实现、C# 平台加载与诊断 socket 接口，并补回可复现生成的 CLR profiler 回调基类。原有 ABI 11 的完整防护、JIT 接管与运行时挂起仍未完成 Linux 集成。
+已增加 Linux 内存/ELF/跳板基础实现、经过 backing-file 验证的共享代码映射、C# 平台加载与诊断 socket 接口，并恢复 net10.0 构建工程。独立 CLR profiler 支撑模块已实现生命周期与运行时挂起接口，但原有 ABI 11 的完整防护和 JIT 接管仍未完成 Linux 集成。
 
 ```sh
 make platform   # 生成开发用 libLihuatPlatform.so
@@ -14,5 +14,7 @@ make sanitize   # ASan/UBSan/LSan 检查
 
 - [移植范围、测试和剩余工作](docs/linux-port.md)
 - [Profiler 缺失输入的恢复及官方来源](docs/profiler-build-inputs.md)
+- [Linux profiler 支撑模块](docs/linux-profiler.md)
+- [托管构建配置与所需真实引用](docs/managed-build.md)
 
-暂以 Linux x86_64 和 RimWorld 1.7/CoreCLR 为目标假设；尚未拿到目标宿主的确切运行时、Harmony 版本和完整托管构建工程，所以没有宣称游戏兼容性。
+暂以 Linux x86_64 和 RimWorld 1.7/CoreCLR 为目标假设；尚未拿到目标宿主的确切运行时、Harmony 版本及真实引用程序集，所以没有宣称游戏兼容性。

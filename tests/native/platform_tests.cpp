@@ -12,6 +12,7 @@
 #include <thread>
 #include <vector>
 #include <sys/mman.h>
+#include <fcntl.h>
 #include <unistd.h>
 namespace p = lihuat::linux_platform;
 bool restricted = false;
@@ -111,6 +112,48 @@ void TestRelaysAndExchange() {
     assert(slots.size() == 256);
     std::cout << "PASS low-address relays, actual branch execution, CAS failure/restore, multithread allocation\n";
 }
+
+void TestSharedAliases() {
+    size_t page = p::PageSize();
+    int fd = memfd_create("lihuat-unpublished-alias-test", MFD_CLOEXEC);
+    assert(fd >= 0 && ftruncate(fd, static_cast<off_t>(page * 2)) == 0);
+    auto map = [&](int protection, int flags, off_t offset) {
+        void* address = mmap(nullptr, page, protection, flags, fd, offset);
+        assert(address != MAP_FAILED); return static_cast<uint8_t*>(address);
+    };
+    auto rw = map(PROT_READ | PROT_WRITE, MAP_SHARED, 0);
+    auto rx = map(PROT_READ | PROT_EXEC, MAP_SHARED, 0);
+    auto otherOffset = map(PROT_READ | PROT_WRITE, MAP_SHARED, static_cast<off_t>(page));
+    auto privateCopy = map(PROT_READ | PROT_WRITE, MAP_PRIVATE, 0);
+    uint8_t one[8]{0xb8, 1, 0, 0, 0, 0xc3, 0x90, 0x90};
+    uint8_t two[8]{0xb8, 2, 0, 0, 0, 0xc3, 0x90, 0x90};
+    int64_t before, after;
+    std::memcpy(&before, one, 8); std::memcpy(&after, two, 8);
+    std::memcpy(rw, one, 8); std::memcpy(otherOffset, one, 8);
+    // Materialize a private COW page: matching file identity is not enough.
+    std::memcpy(privateCopy, one, 8);
+    auto call = reinterpret_cast<int(*)()>(rx);
+    assert(call() == 1);
+    assert(!p::ExchangeUnpublished(rx, otherOffset, before, after));
+    assert(!p::ExchangeUnpublished(rx, privateCopy, before, after));
+    assert(call() == 1);
+    assert(p::ExchangeUnpublished(rx, rw, before, after));
+    assert(call() == 2);
+    p::Region executable, writable;
+    assert(p::Query(rx, executable) && executable.protection == (PROT_READ | PROT_EXEC));
+    assert(p::Query(rw, writable) && writable.protection == (PROT_READ | PROT_WRITE));
+    assert(p::ExchangeUnpublished(rx, rw, after, before));
+    assert(call() == 1);
+    // Also restore a temporarily writable read-only alias after the operation.
+    assert(mprotect(rw, page, PROT_READ) == 0);
+    assert(p::ExchangeUnpublished(rx, rw, before, after));
+    assert(call() == 2);
+    assert(p::Query(rw, writable) && writable.protection == PROT_READ);
+    assert(munmap(rw,page)==0 && munmap(rx,page)==0 && munmap(otherOffset,page)==0 && munmap(privateCopy,page)==0);
+    assert(close(fd)==0);
+    std::cout << "PASS shared executable/write aliases, backing-offset and private-COW rejection, RX/RW restoration\n";
+}
+
 void TestForwarders() {
     p::Forwarders thunks;
     assert(!p::CreateRdiReceiverForwarders(0, thunks));
@@ -149,7 +192,7 @@ void TestImagesAndIndex() {
     std::cout << "PASS ELF image ranges, loaded-module symbols, existing EntryWriteIndex\n";
 }
 int main() {
-    TestMemory(); TestRelaysAndExchange(); TestForwarders(); TestImagesAndIndex();
+    TestMemory(); TestRelaysAndExchange(); TestSharedAliases(); TestForwarders(); TestImagesAndIndex();
     std::cout << (restricted ? "Linux platform tests passed with explicitly reported syscall SKIP. " : "All Linux platform tests passed. ")
               << "Full ABI-11 runtime is NOT under test.\n";
 }

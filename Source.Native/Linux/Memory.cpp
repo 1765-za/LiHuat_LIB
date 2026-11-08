@@ -34,14 +34,17 @@ bool Query(const void* address, Region& result) noexcept {
     bool found = false;
     uintptr_t target = reinterpret_cast<uintptr_t>(address);
     while (getline(&line, &capacity, maps) >= 0) {
-        unsigned long long begin = 0, end = 0;
+        unsigned long long begin = 0, end = 0, fileOffset = 0, inode = 0;
+        unsigned major = 0, minor = 0;
         char mode[5]{};
-        if (sscanf(line, "%llx-%llx %4s", &begin, &end, mode) != 3) continue;
+        if (sscanf(line, "%llx-%llx %4s %llx %x:%x %llu", &begin, &end, mode,
+                   &fileOffset, &major, &minor, &inode) != 7) continue;
+        if (mode[3] != 'p' && mode[3] != 's') continue;
         if (begin > UINTPTR_MAX || end > UINTPTR_MAX || begin >= end) continue;
         if (target < begin || target >= end) continue;
         result = {static_cast<uintptr_t>(begin), static_cast<uintptr_t>(end),
             (mode[0] == 'r' ? PROT_READ : 0) | (mode[1] == 'w' ? PROT_WRITE : 0) | (mode[2] == 'x' ? PROT_EXEC : 0),
-            mode[3] == 'p'};
+            mode[3] == 'p', fileOffset, inode, major, minor};
         found = true;
         break;
     }
@@ -77,12 +80,25 @@ bool RandomBytes(void* destination, size_t bytes) noexcept {
     return true;
 }
 bool ExchangeUnpublished(uint8_t* executable, uint8_t* writable, int64_t expected, int64_t desired) noexcept {
-    if (executable != writable || (reinterpret_cast<uintptr_t>(executable) & 7) || (reinterpret_cast<uintptr_t>(writable) & 7)
+    if ((reinterpret_cast<uintptr_t>(executable) & 7) || (reinterpret_cast<uintptr_t>(writable) & 7)
         || !Readable(executable, sizeof(int64_t), true)) return false;
     std::lock_guard<std::mutex> lock(entryWrites);
-    Region region;
+    Region region, code;
     if (!Query(writable, region) || !Fits(writable, sizeof(int64_t), region)
-        || !(region.protection & PROT_READ) || !region.privateMapping) return false;
+        || !(region.protection & PROT_READ)) return false;
+    if (executable == writable) {
+        // Do not change a shared file through an executable single view.
+        if (!region.privateMapping) return false;
+    } else {
+        if (!Query(executable, code) || !Fits(executable, sizeof(int64_t), code)
+            || code.privateMapping || region.privateMapping || !code.inode
+            || code.inode != region.inode || code.deviceMajor != region.deviceMajor
+            || code.deviceMinor != region.deviceMinor) return false;
+        uint64_t codeDelta = reinterpret_cast<uintptr_t>(executable) - code.begin;
+        uint64_t writeDelta = reinterpret_cast<uintptr_t>(writable) - region.begin;
+        if (codeDelta > UINT64_MAX - code.fileOffset || writeDelta > UINT64_MAX - region.fileOffset
+            || code.fileOffset + codeDelta != region.fileOffset + writeDelta) return false;
+    }
     size_t page = PageSize();
     if (!page) return false;
     uintptr_t start = reinterpret_cast<uintptr_t>(writable);

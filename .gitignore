@@ -4,3 +4,6 @@ __pycache__/
 
 Tests/**/bin/
 Tests/**/obj/
+
+tests/**/bin/
+tests/**/obj/

@@ -1,0 +1,4 @@
+LIHUAT_PROFILER_SUPPORT_1 {
+    global: DllGetClassObject; DllCanUnloadNow; LihuatProfiler_*;
+    local: *;
+};
