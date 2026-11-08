@@ -13,11 +13,26 @@ class Program
     {
         Console.WriteLine($"Runtime: {RuntimeInformation.FrameworkDescription}; {RuntimeInformation.OSDescription}; {RuntimeInformation.ProcessArchitecture}");
         if (LihuatProfiler_GetSupportAbi() != 1) throw new Exception("Wrong support ABI");
-        bool expectedReady = args.Length == 0 || args[0] != "--disabled";
+        if (args.Length > 1 || (args.Length == 1 && args[0] != "--disabled" && args[0] != "--attach-child"))
+            throw new ArgumentException("Expected no arguments, --disabled or --attach-child");
+        bool attachChild = args.Length == 1 && args[0] == "--attach-child";
+        bool expectedReady = args.Length == 0;
         if ((LihuatProfiler_IsReady() == 1) != expectedReady) throw new Exception("Unexpected profiler readiness");
         if (LihuatProfiler_SuspendRuntime() >= 0 || LihuatProfiler_ResumeRuntime() >= 0)
             throw new Exception("Managed-thread/unbalanced suspension accepted");
-        if (!expectedReady) { Console.WriteLine("Disabled-profiler rejection PASS"); return; }
+        if (attachChild)
+        {
+            // The driver attaches only after this proves startup profiling did not run.
+            Console.WriteLine("ATTACH_CHILD_READY");
+            Console.Out.Flush();
+            string? command = Task.Run(Console.ReadLine).WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
+            if (command != "attached") throw new Exception("Missing attach acknowledgement");
+            if (!SpinWait.SpinUntil(() => LihuatProfiler_IsReady() == 1, TimeSpan.FromSeconds(5)))
+                throw new Exception("ProfilerAttachComplete did not establish readiness");
+            if (LihuatProfiler_SuspendRuntime() >= 0 || LihuatProfiler_ResumeRuntime() >= 0)
+                throw new Exception("Attached profiler accepted managed-thread/unbalanced suspension");
+        }
+        else if (!expectedReady) { Console.WriteLine("Disabled-profiler rejection PASS"); return; }
         Thread heartbeat = new(() => { while (Volatile.Read(ref stop) == 0) { Tick(); Interlocked.Increment(ref progress); } });
         heartbeat.Start();
         while (Interlocked.Read(ref progress) == 0) Thread.Yield();
@@ -29,6 +44,6 @@ class Program
         if (Interlocked.Read(ref progress) == previous) throw new Exception("Managed runtime did not resume");
         Volatile.Write(ref stop, 1);
         heartbeat.Join();
-        Console.WriteLine("Startup readiness, managed-thread rejection, native suspension, nesting, ownership and thread-exit cleanup PASS");
+        Console.WriteLine($"{(attachChild ? "Dynamic attach" : "Startup")} readiness, managed-thread rejection, native suspension, nesting, ownership and thread-exit cleanup PASS");
     }
 }

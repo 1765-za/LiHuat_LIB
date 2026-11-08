@@ -150,13 +150,20 @@ This newer result does not validate the target game, Ludeon's custom runtime,
 reflection/private-member contracts or native defenses. See the
 [reproducible probe and exact limits](provisional-reference-build.md).
 
+The later .NET 10 profiler test also verifies startup loading and real
+suspension/resume locally. Its external dynamic-attach test targets only a
+disposable child and runs strictly in CI; local AF_UNIX socket creation is
+denied by the cloud sandbox before attachment. See
+[profiler validation and limits](linux-profiler.md). This does not validate the
+full engine's self-attach path or mutation authority.
+
 ## Remaining work before a usable libLihuatNative.so
 
 1. Confirm host CoreCLR/JIT/Harmony versions and supply the four real reference
    assemblies to the restored managed project. The old root `LihuatNative.cpp` is Mono
    ABI 1 and is not a substitute for Waylith ABI 11.
 2. Integrate the separate official-interface Linux profiler support into the
-   full engine and validate dynamic attachment and lifecycle alongside its
+   full engine and validate production self-attachment and lifecycle alongside its
    mutation authority. The old Windows SDK wrappers cannot be included with
    modern duplicate interface declarations.
 3. Port registry/authority/write-scope and JIT publication to the Linux platform

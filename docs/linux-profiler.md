@@ -66,13 +66,45 @@ With the libraries and harness in `build/linux-x64` and a .NET 10 SDK installed:
 bash tests/profiler/run.sh build/linux-x64
 ```
 
-This builds the managed smoke project outside profiling, tests disabled-profiler
-failure, then launches a fresh .NET process with profiling enabled. Each process
-has a 30-second external timeout to expose suspension deadlocks. Output records
-the actual runtime version and architecture. The integration checks startup
-loading; dynamic attachment is implemented but **not integration-tested** here.
+This builds both managed test projects outside profiling and runs three cases:
 
-Local verification: strict GCC build and native COM contracts pass. There was
-no .NET SDK in the implementation environment, so real CLR loading/suspension
-must be validated in CI before claiming those integration tests pass. Passing
-on a .NET 10 patch runtime does not establish RimWorld host compatibility.
+1. Disabled-profiler rejection in a fresh process.
+2. Startup loading with profiling enabled, followed by the native harness above.
+3. External dynamic attachment to a disposable child created by `AttachDriver`.
+   The child first verifies support ABI 1, no profiler readiness and rejection of
+   suspension. Only after that handshake does the driver call Microsoft's
+   `DiagnosticsClient.AttachProfiler` with the child's PID, the support CLSID
+   above and the absolute support-library path. The child requires readiness
+   from `ProfilerAttachComplete` and repeats the real suspension/resume tests.
+   The driver requires both a zero child exit code and its final PASS marker.
+
+The driver never accepts an arbitrary PID. It removes inherited startup-profiler
+and diagnostic-port settings for its child, has a 25-second deadline and kills
+the child on failure. `run.sh` also clears profiling before SDK/build processes.
+Startup/disabled runs have 30-second external timeouts; the entire attach driver
+has a 35-second external timeout. Output records the actual runtime and
+architecture. No timeout or attach failure is converted to a skip or success.
+
+The driver uses the official NuGet package
+[`Microsoft.Diagnostics.NETCore.Client` 0.2.661903](https://www.nuget.org/packages/Microsoft.Diagnostics.NETCore.Client/0.2.661903),
+under Microsoft's [MIT license](https://licenses.nuget.org/MIT). Its exact version
+and transitive dependency content hashes are locked in
+`tests/profiler-attach/packages.lock.json`; restore uses only NuGet.org in locked
+mode. This dependency is exclusive to the test driver, not the mod or native
+library. No game binaries are needed or executed by this test.
+
+Local verification on Debian 13 x86-64, SDK 10.0.100/runtime 10.0.0: strict native
+COM contracts, disabled rejection, startup loading and real suspension/resume
+pass. Local dynamic attachment is blocked before profiler loading because this
+cloud sandbox denies AF_UNIX socket creation with `EPERM`; no target diagnostic
+socket is created. The strict CI runtime-contracts job runs all three cases on
+Ubuntu and must succeed for its exact commit before claiming external attach
+integration passed. No sandbox security settings are changed.
+
+**Scope:** external attachment to this separate support module is not production
+self-attachment. The full backend uses a different CLSID/export contract and
+still requires integration of its own transport, mutation authority and lifetime
+rules. This test does not establish detachment behavior, game/JIT/Harmony
+compatibility, private-runtime API validity, protection coverage or a usable
+ABI-11 Linux backend. Passing on a stock .NET 10 patch runtime does not establish
+RimWorld host compatibility.

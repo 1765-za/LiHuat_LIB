@@ -34,7 +34,7 @@ jobs:
         run: bash tools/fetch_clr_headers.sh
       - name: Verify source JIT contract and native profiler COM contracts
         run: make jit-contracts profiler-contracts
-      - name: Real CoreCLR profiler startup and suspension integration
+      - name: Real CoreCLR profiler startup, dynamic attach and suspension integration
         run: make profiler-integration
       - name: Portable managed project and fingerprint tests
         run: python3 Tests/BuildMetadata/test_build_metadata.py
