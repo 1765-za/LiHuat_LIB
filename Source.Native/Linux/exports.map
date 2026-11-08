@@ -1,0 +1,4 @@
+LIHUAT_PLATFORM_1 {
+    global: LihuatPlatform_*;
+    local: *;
+};

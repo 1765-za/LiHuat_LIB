@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Globalization;
+using System.Net.Sockets;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -32,11 +34,54 @@ namespace LihuatLib.Mechanisms
             }
             finally { attaching.Release(); }
         }
+        private static async Task<Stream> Connect(CancellationToken cancellation)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var pipe = new NamedPipeClientStream(".", "dotnet-diagnostic-" + Environment.ProcessId,
+                    PipeDirection.InOut, PipeOptions.Asynchronous);
+                try
+                {
+                    await pipe.ConnectAsync(cancellation).ConfigureAwait(false);
+                    return pipe;
+                }
+                catch { pipe.Dispose(); throw; }
+            }
+            if (!OperatingSystem.IsLinux())
+                throw new PlatformNotSupportedException("CLR diagnostic attachment supports Windows and Linux only.");
+            var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            try
+            {
+                await socket.ConnectAsync(new UnixDomainSocketEndPoint(LinuxDiagnosticEndpoint()), cancellation).ConfigureAwait(false);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch { socket.Dispose(); throw; }
+        }
+
+        internal static string LinuxDiagnosticEndpoint()
+        {
+            // The default endpoint uses the process start time in clock ticks, not wall-clock time.
+            // https://learn.microsoft.com/dotnet/core/diagnostics/diagnostic-port
+            // /proc/[pid]/stat field 22 is starttime; comm (field 2) may itself contain spaces or ')'.
+            string stat = File.ReadAllText("/proc/self/stat");
+            int end = stat.LastIndexOf(')');
+            if (end < 0) throw new InvalidDataException("Cannot determine the process start time for CLR diagnostics.");
+            string[] fields = stat.Substring(end + 1).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length <= 19 || !ulong.TryParse(fields[19], NumberStyles.None, CultureInfo.InvariantCulture, out ulong start))
+                throw new InvalidDataException("Invalid process start time for CLR diagnostics.");
+            string temp = Environment.GetEnvironmentVariable("TMPDIR");
+            if (string.IsNullOrEmpty(temp)) temp = "/tmp";
+            if (!System.IO.Path.IsPathFullyQualified(temp))
+                throw new InvalidOperationException("CLR diagnostics TMPDIR must be an absolute path.");
+            // Never pick an arbitrary socket from a directory scan, including stale sockets after PID reuse.
+            return System.IO.Path.Combine(temp, "dotnet-diagnostic-"
+                + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + "-"
+                + start.ToString(CultureInfo.InvariantCulture) + "-socket");
+        }
+
         private static async Task<int> Request(Guid identity, string path, CancellationToken cancellation)
         {
-            using var pipe = new NamedPipeClientStream(".", "dotnet-diagnostic-" + Environment.ProcessId,
-                PipeDirection.InOut, PipeOptions.Asynchronous);
-            await pipe.ConnectAsync(cancellation).ConfigureAwait(false);
+            using Stream pipe = await Connect(cancellation).ConfigureAwait(false);
             using var request = new MemoryStream();
             using (var writer = new BinaryWriter(request, Encoding.Unicode, true))
             {

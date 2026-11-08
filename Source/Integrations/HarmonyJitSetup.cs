@@ -16,9 +16,6 @@ namespace LihuatLib.Integrations
         internal static IntPtr Address => address;
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool VirtualProtect(IntPtr address, nuint size, uint protection, out uint previous);
-
         internal static unsafe void Install()
         {
             lock (sync) InstallLocked();
@@ -42,11 +39,13 @@ namespace LihuatLib.Integrations
             Type runtimeBase = harmony.GetType("MonoMod.Core.Platforms.Runtimes.CoreBaseRuntime", true);
             IntPtr jit = (IntPtr)runtimeBase.GetProperty("JitObject", Instance).GetValue(runtime);
             int index = (int)runtime21.GetProperty("VtableIndexICorJitCompilerCompileMethod", Instance).GetValue(runtime);
-            slot = Marshal.ReadIntPtr(jit) + index * IntPtr.Size;
+            if (!NativePlatform.TryReadPointer(jit, out IntPtr table) || table == IntPtr.Zero || index < 0)
+                throw new InvalidOperationException("Cannot read the CoreCLR JIT table.");
+            slot = table + checked(index * IntPtr.Size);
             Delegate replacement = body?.CreateDelegate(original.GetType(), original.Target) ?? original;
             address = Marshal.GetFunctionPointerForDelegate(replacement);
             byte* entry; uint size;
-            ((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, void*, uint, byte**, uint*, int>)address)(IntPtr.Zero, IntPtr.Zero, null, 0, &entry, &size);
+            ((delegate* unmanaged<IntPtr, IntPtr, void*, uint, byte**, uint*, int>)address)(IntPtr.Zero, IntPtr.Zero, null, 0, &entry, &size);
             // A callback already loaded by the compiler can outlive its slot publication.
             originalRoot = original;
             installed = replacement;
@@ -56,9 +55,10 @@ namespace LihuatLib.Integrations
         private static unsafe void Publish()
         {
             ref IntPtr location = ref *(IntPtr*)slot;
-            if (Volatile.Read(ref location) == address) return;
-            if (!VirtualProtect(slot, (nuint)IntPtr.Size, 0x04, out uint protection))
-                throw new InvalidOperationException("Cannot publish JIT callback.");
+            if (!NativePlatform.TryReadPointer(slot, out IntPtr current))
+                throw new InvalidOperationException("Cannot read the JIT callback slot.");
+            if (current == address) return;
+            NativePlatform.SlotProtection protection = NativePlatform.MakeSlotWritable(slot);
             bool changed = false;
             IntPtr previous = IntPtr.Zero;
             try
@@ -72,10 +72,10 @@ namespace LihuatLib.Integrations
             }
             finally
             {
-                if (!VirtualProtect(slot, (nuint)IntPtr.Size, protection, out _))
+                if (!protection.Restore())
                 {
                     if (changed) Interlocked.CompareExchange(ref location, previous, address);
-                    VirtualProtect(slot, (nuint)IntPtr.Size, protection, out _);
+                    protection.Restore();
                     throw new InvalidOperationException("Cannot restore JIT table protection.");
                 }
             }
