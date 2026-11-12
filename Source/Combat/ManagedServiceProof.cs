@@ -18,23 +18,28 @@ namespace LihuatLib.Combat
                 if (!seen.Add((method, string.Join(",", amount)))) continue;
                 var body = il.Read(method); budget -= body.Count;
                 if (seen.Count > 16 || body.Count == 0 || budget < 0) return false;
+                var flow = ManagedWriteFlow.Analyze(method, body);
+                if (flow == null) return false;
                 for (int i = 0; i < body.Count; i++)
                 {
-                    var line = body[i]; int at = i - 1;
+                    var line = body[i];
                     if (line.opcode == OpCodes.Stfld && line.operand is FieldInfo field)
                     {
-                        var value = ManagedValueExpression.Before(body, ref at);
-                        if (ManagedValueExpression.Before(body, ref at)?.IsThis != true) return false;
-                        writes |= reads.Contains(field) && value != null && Array.Exists(amount, value.DependsOnArgument);
+                        var args = flow.Inputs(i, 2);
+                        if (args == null) continue;
+                        if (!ManagedWriteFlow.IsSubject(args[0])) return false;
+                        writes |= reads.Contains(field) && Array.Exists(amount, argument => ManagedWriteFlow.Depends(args[1], argument));
                     }
                     else if (line.opcode == OpCodes.Stsfld || line.opcode == OpCodes.Calli || line.opcode.Name.StartsWith("stind") || line.opcode.Name.StartsWith("stelem")) return false;
                     else if (line.operand is MethodInfo call && call.IsStatic && call.ReturnType == typeof(void))
                     {
                         var parameters = call.GetParameters();
                         if (parameters.Length == 0 || parameters.Length > 6 || parameters[0].ParameterType != writer.GetParameters()[0].ParameterType) return false;
-                        if (!ManagedValueExpression.ReadInputs(body, ref at, parameters.Length, 0, out var args) || !args[0].IsThis) return false;
+                        var args = flow.Inputs(i, parameters.Length);
+                        if (args == null) continue;
+                        if (!ManagedWriteFlow.IsSubject(args[0])) return false;
                         var forwarded = new List<int>();
-                        for (int a = 1; a < args.Length; a++) if (Array.Exists(amount, args[a].DependsOnArgument)) forwarded.Add(a);
+                        for (int a = 1; a < args.Length; a++) if (Array.Exists(amount, argument => ManagedWriteFlow.Depends(args[a], argument))) forwarded.Add(a);
                         pending.Enqueue((call, forwarded.ToArray()));
                     }
                 }

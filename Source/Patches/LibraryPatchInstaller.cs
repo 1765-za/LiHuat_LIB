@@ -19,7 +19,7 @@ namespace LihuatLib.Patches
                 Patch(typeof(PawnGenerationStepPatch), typeof(DeveloperActionPatch), typeof(DeveloperToolPatch), typeof(DeveloperWindowCreationPatch),
                 typeof(DeveloperWindowActionPatch), typeof(DeveloperQueuedActionPatch),
                 typeof(ShouldDieEntryPatch), typeof(RuntimeComponentRemovalPatch), typeof(ColonistMoodPatch),
-                typeof(EndingWindowPatch), typeof(EndingCreditsPatch));
+                typeof(EndingWindowPatch), typeof(EndingCreditsPatch), typeof(EndingGameOverPatch));
             bool domains = LibraryCapabilities.Has(LibraryCapability.Domains);
             if (domains) Integrations.QuestDomainCompatibility.Install();
             bool starBlood = LibraryCapabilities.Has(LibraryCapability.StarBlood);

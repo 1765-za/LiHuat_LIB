@@ -59,15 +59,18 @@ namespace LihuatLib.Mechanisms
             Region[] regionCells = regions(map.regionGrid);
             var visited = new HashSet<Region>();
             int width = map.Size.x, height = map.Size.z;
-            for (int z = Math.Max(0, footprint.minZ - 1); z <= Math.Min(height - 1, footprint.maxZ + 1); z++)
-                for (int x = Math.Max(0, footprint.minX - 1); x <= Math.Min(width - 1, footprint.maxX + 1); x++)
-                {
-                    int index = z * width + x;
-                    if (x >= footprint.minX && x <= footprint.maxX && z >= footprint.minZ && z <= footprint.maxZ)
-                        found |= RegistrationStorage.List(cells[index], target, remove);
-                    Region region = regionCells[index];
-                    if (region != null && visited.Add(region)) found |= ThingListerStorage.Process(regionLister(region), target, remove);
-                }
+            for (int z = Math.Max(0, footprint.minZ); z <= Math.Min(height - 1, footprint.maxZ); z++)
+                for (int x = Math.Max(0, footprint.minX); x <= Math.Min(width - 1, footprint.maxX); x++)
+                    found |= RegistrationStorage.List(cells[z * width + x], target, remove);
+
+            // Displaced things can remain in old regions, including invalid regions awaiting regeneration.
+            foreach (Region region in regionCells)
+            {
+                if (region == null || !visited.Add(region)) continue;
+                ListerThings lister = regionLister(region);
+                if (ThingListerStorage.ContainsByDefinition(lister, target))
+                    found |= ThingListerStorage.Process(lister, target, remove);
+            }
             return found;
         }
 

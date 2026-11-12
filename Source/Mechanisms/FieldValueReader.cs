@@ -10,29 +10,10 @@ namespace LihuatLib.Mechanisms
 {
     internal static class FieldValueReader
     {
-        private static readonly MethodInfo bake = AccessTools.Method(typeof(ILGenerator).Assembly.GetType("System.Reflection.Emit.RuntimeILGenerator", true), "BakeByteArray");
-        private static readonly FieldInfo scope = AccessTools.Field(DynamicWriteCatalogue.GeneratorType, "m_scope");
-        private static readonly MethodInfo item = AccessTools.PropertyGetter(scope.FieldType, "Item");
-
         internal static DynamicMethod Build(MethodInfo source)
         {
             if (!source.ReturnType.IsByRef) return null;
-            List<CodeInstruction> lines;
-            if (source is DynamicMethod dynamic)
-            {
-                if (DynamicWriteCatalogue.TryGet(dynamic, out var entry) && entry.Generator != null)
-                {
-                    object tokens = scope.GetValue(entry.Generator);
-                    lines = LifeIlReader.Decode((byte[])bake.Invoke(entry.Generator, null), (_, key) => Resolve(item.Invoke(tokens, new object[] { key })));
-                }
-                else lines = DynamicIlCatalogue.Read(dynamic);
-            }
-            else
-            {
-                if (source.DeclaringType == null) return null;
-                MethodBody body = NativeRuntime.SourceBody(source);
-                lines = body == null ? null : LifeIlReader.Decode(source, CilRewrite.ReadSource(source, body));
-            }
+            List<CodeInstruction> lines = MethodInstructionSource.Read(source);
             if (lines == null) return null;
             var code = new List<CodeInstruction>();
             foreach (CodeInstruction line in lines)
@@ -72,14 +53,5 @@ namespace LihuatLib.Mechanisms
             return reader;
         }
 
-        internal static object ResolveToken(object tokens, int key) => Resolve(item.Invoke(tokens, new object[] { key }));
-        private static object Resolve(object token) => token switch
-        {
-            DynamicMethod method => method,
-            RuntimeFieldHandle field => FieldInfo.GetFieldFromHandle(field),
-            RuntimeMethodHandle method => MethodBase.GetMethodFromHandle(method),
-            RuntimeTypeHandle type => Type.GetTypeFromHandle(type),
-            _ => null
-        };
     }
 }

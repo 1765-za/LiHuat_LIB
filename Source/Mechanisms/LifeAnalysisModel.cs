@@ -12,7 +12,8 @@ namespace LihuatLib.Mechanisms
     {
         public readonly LifeAnalysisKind Kind;
         public readonly MemberInfo Root;
-        public LifeAnalysisKey(LifeAnalysisKind kind, MemberInfo root) { Kind = kind; Root = root; }
+        public LifeAnalysisKey(LifeAnalysisKind kind, MemberInfo root)
+        { Kind = kind; Root = root is MethodInfo method ? MethodIdentity.Declaration(method) : root; }
         public Type Type => Root as Type ?? Root.DeclaringType;
         public bool Equals(LifeAnalysisKey other) => Kind == other.Kind && Equals(Root, other.Root);
         public override bool Equals(object value) => value is LifeAnalysisKey other && Equals(other);
@@ -92,6 +93,7 @@ namespace LihuatLib.Mechanisms
         }
         internal bool Available(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             Reads.Add(method);
             if (Inputs.ContainsKey(method)) return true;
             LifeMethodSnapshot shared = snapshots?.Find(method);
@@ -100,10 +102,15 @@ namespace LihuatLib.Mechanisms
         }
         public byte[] Read(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             return Available(method) ? Inputs[method].Body : null;
         }
-        private List<CodeInstruction> Code(MethodInfo method) => Available(method) ? Inputs[method].Code(method) : null;
-        public Type[] Locals(MethodInfo method) => Inputs.TryGetValue(method, out LifeMethodSnapshot input) ? input.Locals : Type.EmptyTypes;
+        private List<CodeInstruction> Code(MethodInfo method)
+        {
+            method = MethodIdentity.Declaration(method);
+            return Available(method) ? Inputs[method].Code(method) : null;
+        }
+        public Type[] Locals(MethodInfo method) => Inputs.TryGetValue(MethodIdentity.Declaration(method), out LifeMethodSnapshot input) ? input.Locals : Type.EmptyTypes;
         public LifeAnalysisArtifact Analyze()
         {
             Missing.Clear();

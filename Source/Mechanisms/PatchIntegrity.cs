@@ -31,7 +31,8 @@ namespace LihuatLib.Mechanisms
         public static void Install()
         {
             if (installed) return;
-            Integrations.HarmonyPrefixRegistry.Initialize();
+            Integrations.HarmonyCodeWriter.Install();
+            Integrations.HarmonyRegistrations.Initialize();
             DynamicMethod registration = IntegrityEmission.Registration(update, detour,
                 AccessTools.Method(typeof(PatchIntegrity), nameof(BeforeUpdate)),
                 AccessTools.Method(typeof(PatchIntegrity), nameof(CommitRegistered)));
@@ -45,6 +46,7 @@ namespace LihuatLib.Mechanisms
             Integrations.HarmonySourceBody.Install();
             if (Configuration.HighMechanismPolicy.NativeProtection) HarmonyPatchAuthority.Install();
             installed = true;
+            InfrastructureMethodProtection.InstallEntryBoundary();
             foreach (MethodBase original in Harmony.GetAllPatchedMethods().ToArray())
             {
                 HarmonyLib.Patches info = Harmony.GetPatchInfo(original);
@@ -58,6 +60,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void RefreshExisting(MethodBase original)
         {
+            original = Integrations.HarmonyRegistrations.TargetView(original);
             HarmonyLib.Patches info = Harmony.GetPatchInfo(original);
             if (info == null) return;
             rebuild(original, new PatchInfo
@@ -69,7 +72,8 @@ namespace LihuatLib.Mechanisms
         }
 
         private static bool ProtectedDestination(MethodBase method) => method != null
-            && (GeneratedIntegrity.Owns(method) || integrityEntries.Contains(method) || anchors.ContainsKey(method) || NativeIlGuards.Contains(method));
+            && (GeneratedIntegrity.Owns(method) || integrityEntries.Contains(MethodIdentity.Declaration(method))
+                || anchors.ContainsKey(MethodIdentity.Declaration(method)) || NativeIlGuards.Contains(method));
 
         private static bool BeforeReverse(HarmonyMethod standin, MethodBase original, ref MethodInfo __result)
         {
@@ -94,19 +98,19 @@ namespace LihuatLib.Mechanisms
                 if (!NativeIlGuards.Commit(method, replacement)) commit(method, replacement);
             });
             if (Dispatching.NativeDispatcher.GenericControl(method) != null)
-            { WrapperCommitted?.Invoke(method); return; }
+            { WrapperCommitted?.Invoke(MethodIdentity.Declaration(method)); return; }
             if (ProtectedDestination(method))
             {
                 ExecutableWriteProtection.Track(RuntimeMethodAddress.Get(method));
                 ExecutableWriteProtection.Track(RuntimeMethodAddress.Get(replacement));
             }
-            WrapperCommitted?.Invoke(method);
+            WrapperCommitted?.Invoke(MethodIdentity.Declaration(method));
         }
 
         private static bool BeforeUpdate(MethodBase original, PatchInfo patchInfo, ref MethodInfo result)
         {
             if (!Configuration.HighMechanismPolicy.NativeProtection)
-            { WrapperPreparing?.Invoke(original, patchInfo); return true; }
+            { WrapperPreparing?.Invoke(MethodIdentity.Declaration(original), patchInfo); return true; }
             MethodInfo control = NativeIlGuards.Control(original);
             if (control != null)
             {
@@ -118,17 +122,27 @@ namespace LihuatLib.Mechanisms
                 return false;
             }
             BeforeRebuild(original, patchInfo);
-            WrapperPreparing?.Invoke(original, patchInfo);
+            if (GeneratedIntegrity.Owns(original)
+                && patchInfo.prefixes.Length + patchInfo.postfixes.Length + patchInfo.transpilers.Length + patchInfo.finalizers.Length
+                    + patchInfo.innerprefixes.Length + patchInfo.innerpostfixes.Length + patchInfo.innerfinalizers.Length == 0)
+            {
+                ExecutableWriteProtection.Run(() => Integrations.HarmonyPatchOwnership.Release(original));
+                Integrations.HarmonyRegistrations.Published(original, patchInfo);
+                result = original as MethodInfo;
+                return false;
+            }
+            WrapperPreparing?.Invoke(MethodIdentity.Declaration(original), patchInfo);
             return true;
         }
 
         private static Patch Clone(Patch patch) => new Patch(new HarmonyMethod(patch.PatchMethod)
         { priority = patch.priority, before = patch.before.ToArray(), after = patch.after.ToArray(), debug = patch.debug,
             uncheckedReferenceBinding = patch.uncheckedReferenceBinding, innerMethod = patch.innerMethod, innerTarget = patch.innerTarget }, patch.index, patch.owner);
-        internal static Patch[][] CaptureAnchors(MethodBase original) => anchors.TryGetValue(original, out Patch[][] groups)
+        internal static Patch[][] CaptureAnchors(MethodBase original) => anchors.TryGetValue(MethodIdentity.Declaration(original), out Patch[][] groups)
             ? groups.Select(group => group?.Select(Clone).ToArray()).ToArray() : null;
         internal static void RestoreAnchors(MethodBase original, Patch[][] snapshot)
         {
+            original = MethodIdentity.Declaration(original);
             if (snapshot == null) anchors.Remove(original);
             else anchors[original] = snapshot;
         }
@@ -139,6 +153,7 @@ namespace LihuatLib.Mechanisms
         private static bool Anchor(Patch patch) => Own(patch) && (InfrastructureAssemblies.Contains(patch.PatchMethod.Module.Assembly));
         private static void Capture(MethodBase method, Patch[][] groups, bool bootstrap = false)
         {
+            method = MethodIdentity.Declaration(method);
             if (!anchors.TryGetValue(method, out Patch[][] saved)) anchors.Add(method, saved = new Patch[7][]);
             for (int i = 0; i < groups.Length; i++)
             {
@@ -185,6 +200,7 @@ namespace LihuatLib.Mechanisms
 
         private static void BeforeRebuild(MethodBase original, PatchInfo patchInfo)
         {
+            original = MethodIdentity.Declaration(original);
             bool owned = GeneratedIntegrity.Owns(original) || integrityEntries.Contains(original);
             Patch[][] groups = { patchInfo.prefixes, patchInfo.postfixes, patchInfo.transpilers, patchInfo.finalizers, patchInfo.innerprefixes, patchInfo.innerpostfixes, patchInfo.innerfinalizers };
             if (!owned && !anchors.ContainsKey(original) && !groups.Any(g => g.Any(Anchor))) return;

@@ -73,6 +73,7 @@ namespace LihuatLib.Mechanisms
         {
             CodePublicationAuthority.RequireCaller();
             CodePublicationAuthority.RequireBlueprint(source);
+            source = MethodIdentity.Declaration(source);
             if (methods.TryGetValue(source, out DynamicMethod existing)) return existing;
             ParameterInfo[] parameters = source.GetParameters();
             MethodBody body = NativeRuntime.SourceBody(source) ?? throw new InvalidOperationException("Missing detector IL: " + source);

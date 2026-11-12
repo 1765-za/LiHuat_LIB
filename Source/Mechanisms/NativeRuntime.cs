@@ -71,6 +71,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static void Register(MethodBase method, byte[] expected, byte[] replacement, MethodInfo destination)
         {
+            method = MethodIdentity.Declaration(method);
             if (!Available && !TryInitialize()) throw new InvalidOperationException(Failure);
             Validate(method);
             if (entries.ContainsKey(method) || !expected.SequenceEqual(RuntimeMethodBodies.Read(method)))
@@ -92,15 +93,21 @@ namespace LihuatLib.Mechanisms
         }
         internal static void Publish(MethodBase method, MethodInfo destination)
         {
+            method = MethodIdentity.Declaration(method);
             Entry entry = entries[method];
             entry.Target?.Publish(destination);
             Apply(method, entry);
         }
-        internal static MethodBody SourceBody(MethodBase method) => (GenericMethodIdentity.Applies(method) ? GenericBodyPublication.Source((MethodInfo)method) : null)
-            ?? (entries.TryGetValue(method, out Entry entry)
-            && entry.Target != null ? entry.Source : method.GetMethodBody());
+        internal static MethodBody SourceBody(MethodBase method)
+        {
+            method = MethodIdentity.Declaration(method);
+            return (GenericMethodIdentity.Applies(method) ? GenericBodyPublication.Source((MethodInfo)method) : null)
+                ?? (entries.TryGetValue(method, out Entry entry)
+                && entry.Target != null ? entry.Source : method.GetMethodBody());
+        }
         internal static void Retain(MethodInfo method, IntPtr address, long expected)
         {
+            method = MethodIdentity.Declaration(method);
             LibraryCapabilities.RequirePublicationThread();
             if (!entries.TryGetValue(method, out Entry entry) || !entry.Applied) throw new InvalidOperationException("Method entry has not been published.");
             ExecutableWriteProtection.Run(() =>
@@ -132,6 +139,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static NativeIlStatus Status(MethodBase method)
         {
+            method = MethodIdentity.Declaration(method);
             if (GenericMethodIdentity.Applies(method)) return GenericBodyPublication.Status((MethodInfo)method);
             if (method == null || !Available || !entries.TryGetValue(method, out Entry entry)) return default;
             if (!entry.Applied) return new NativeIlStatus(new Snapshot { State = (uint)NativeIlState.Pending });
@@ -141,6 +149,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static bool Remove(MethodBase method)
         {
+            method = MethodIdentity.Declaration(method);
             if (!entries.TryGetValue(method, out Entry entry)) return false;
             if (entry.Applied)
             {

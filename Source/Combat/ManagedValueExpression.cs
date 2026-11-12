@@ -38,11 +38,21 @@ namespace LihuatLib.Combat
             else if (ManagedCombatIl.LoadedLocal(line).HasValue || op == OpCodes.Ldloca || op == OpCodes.Ldloca_S)
             {
                 int local = ManagedCombatIl.LoadedLocal(line) ?? Convert.ToInt32(line.operand);
-                int[] stores = Enumerable.Range(0, at + 1).Where(i => ManagedCombatIl.StoredLocal(body[i].opcode, body[i].operand) == local).Take(2).ToArray();
-                if (stores.Length != 1) return null;
+                int[] stores = Enumerable.Range(0, at + 1).Where(i => ManagedCombatIl.StoredLocal(body[i].opcode, body[i].operand) == local).Take(9).ToArray();
+                if (stores.Length == 0 || stores.Length > 8) return null;
                 int cursor = stores[0] - 1;
                 ManagedValueExpression input = Before(body, ref cursor, depth + 1);
                 if (input == null) return null;
+                if (stores.Length > 1)
+                {
+                    if (input.Unwrapped().Operand is not MethodInfo reader || !reader.IsStatic
+                        || !reader.ReturnType.IsValueType || reader.ReturnType.IsPrimitive) return null;
+                    foreach (int store in stores.Skip(1))
+                    {
+                        cursor = store - 1;
+                        if (!SameSource(input, Before(body, ref cursor, depth + 1))) return null;
+                    }
+                }
                 value.Local = local;
                 value.Inputs = new[] { input };
             }
@@ -89,6 +99,13 @@ namespace LihuatLib.Combat
         }
 
         internal bool IsConstant => Argument < 0 && Local < 0 && Inputs.Length == 0 && Operand is not MemberInfo;
+        private static bool SameSource(ManagedValueExpression left, ManagedValueExpression right)
+        {
+            if (left == null || right == null) return false;
+            left = left.Unwrapped(); right = right.Unwrapped();
+            return left.Operation == right.Operation && Equals(left.Operand, right.Operand) && left.Argument == right.Argument
+                && left.Inputs.Length == right.Inputs.Length && left.Inputs.Zip(right.Inputs, SameSource).All(equal => equal);
+        }
         internal static bool IsClamp(MethodInfo method) => method.IsStatic && ManagedHealthStorage.Numeric(method.ReturnType)
             && (method.DeclaringType == typeof(Math) || method.DeclaringType == typeof(MathF) || method.DeclaringType == typeof(UnityEngine.Mathf))
             && (method.Name == "Max" || method.Name == "Min") && ManagedCombatIl.Signature(method, method.ReturnType, method.ReturnType);

@@ -36,6 +36,7 @@ namespace LihuatLib.Mechanisms
         {
             policy = null;
             if (!DynamicWriteCatalogue.Ready || DynamicWriteCatalogue.Building || method == null || method is DynamicMethod) return false;
+            method = MethodIdentity.Declaration(method);
             if (!generated && !(method.ReturnType.IsByRef && LifeResourceEvidence.IsCustom(method.DeclaringType))
                 && !assemblies.GetValue(method.Module.Assembly, assembly => new Eligibility(assembly)).Generated) return false;
             if (method.IsAbstract || method.ContainsGenericParameters && !definition || GeneratedIntegrity.Owns(method)

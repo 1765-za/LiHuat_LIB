@@ -43,13 +43,13 @@ namespace LihuatLib.Core
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public OperationScope(OperationKind kind) : this(kind, null, Assembly.GetCallingAssembly()) { }
+        public OperationScope(OperationKind kind) : this(kind, null, InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly())) { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public OperationScope(OperationKind kind, Thing subject) : this(kind, subject, Assembly.GetCallingAssembly()) { }
+        public OperationScope(OperationKind kind, Thing subject) : this(kind, subject, InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly())) { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private OperationScope(OperationKind kind, Thing subject, Assembly caller)
+        private OperationScope(OperationKind kind, Thing subject, bool authorized)
         {
             if (kind < OperationKind.Transfer || kind > OperationKind.ControlledDamage)
                 throw new ArgumentOutOfRangeException(nameof(kind));
@@ -57,8 +57,8 @@ namespace LihuatLib.Core
                 throw new ArgumentNullException(nameof(subject));
             this.kind = kind;
             this.subject = subject;
-            if (!DeveloperExecution.Active && (!InfrastructureAssemblies.Contains(caller) && !Mechanisms.OperationCaller.IsInfrastructureReplacement()
-                || Assembly.GetCallingAssembly() != typeof(OperationScope).Assembly)) return;
+            if (!DeveloperExecution.Active && (!authorized
+                || !InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly(), typeof(OperationScope).Assembly))) return;
             entered = true;
             previous = current;
             current = this;

@@ -36,6 +36,7 @@ namespace LihuatLib.Mechanisms
 
         private static Delegate Publish(MethodInfo method, Delegate result)
         {
+            method = MethodIdentity.Declaration(method);
             if (result != null && DynamicWriteCatalogue.Ready && !DynamicWriteCatalogue.Building
                 && PawnCollectionCalls.Body(method) is DynamicMethod collection)
                 return result.GetType().GetMethod("Invoke").GetParameters().Length == collection.GetParameters().Length
@@ -58,6 +59,7 @@ namespace LihuatLib.Mechanisms
                 return copies.GetValue(method, _ => new ProtectedCopy(GeneratedWriteGate.Build(method,
                     authority || fields.Any(GeneratedIntegrity.Owns)))).Method;
             }
+            method = MethodIdentity.Declaration(method);
             if (!GeneratedMethodCatalogue.TryGet(method, out var policy, true)) return method;
             return policy.EntryRequired ? copies.GetValue(method, _ => new ProtectedCopy(GeneratedWriteGate.Build(GeneratedMethodBody.For(method),
                     policy.Authority || policy.Fields.Any(GeneratedIntegrity.Owns)))).Method : GeneratedMethodBody.For(method);

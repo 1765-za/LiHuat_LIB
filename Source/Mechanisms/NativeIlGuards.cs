@@ -36,8 +36,7 @@ namespace LihuatLib.Mechanisms
         public const int TransformOrder = 3000;
         public const int ResultOrder = 4000;
         public static MethodInfo Definition(MethodInfo method) => method == null ? null : GenericMethodIdentity.Applies(method)
-            ? GenericMethodIdentity.Definition(method) : method.DeclaringType == null || method.ReflectedType == method.DeclaringType
-                ? method : (MethodInfo)MethodBase.GetMethodFromHandle(method.MethodHandle, method.DeclaringType.TypeHandle);
+            ? GenericMethodIdentity.Definition(method) : MethodIdentity.Declaration(method);
         private static MethodBase Key(MethodBase method) => method is MethodInfo info ? Definition(info) : method;
         private static string Identity(MethodInfo callback) => callback.Module.Assembly.FullName + ":" + callback.DeclaringType?.FullName + ":" + callback.MetadataToken;
         public static int Count => entries.Count + Dispatching.NativeDispatcher.GenericCount;
@@ -249,7 +248,7 @@ namespace LihuatLib.Mechanisms
             original = Key(original);
             if (!entries.TryGetValue(original, out Entry entry) || entry.Pipeline == null)
                 throw new InvalidOperationException("No composable native entry: " + original);
-            if (HarmonyLib.Harmony.GetPatchInfo(original) != null) { PatchIntegrity.RefreshExisting(original); return; }
+            if (Integrations.HarmonyRegistrations.ReadPatches(original) != null) { PatchIntegrity.RefreshExisting(original); return; }
             MethodInfo previous = entry.Pipeline.Source;
             entry.Pipeline.Source = Dispatching.NativeDispatcher.Source(original);
             try { entry.Publish(entry.Pipeline.Compose()); }

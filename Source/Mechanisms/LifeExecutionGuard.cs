@@ -30,6 +30,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Invalidate(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             bool changed = byMethod.TryGetValue(method, out List<LifeExecutionSite> previous);
             if (changed)
             {
@@ -46,6 +47,7 @@ namespace LihuatLib.Mechanisms
             HashSet<MethodBase> changed = null;
             foreach (LifeExecutionSite candidate in candidates)
             {
+                candidate.Method = MethodIdentity.Declaration(candidate.Method);
                 if (candidate.RequiresBinding && (instance == null || pawn == null || !candidate.Owns(instance, pawn))) continue;
                 byMethod.TryGetValue(candidate.Method, out List<LifeExecutionSite> group);
                 LifeExecutionSite site = null;
@@ -73,14 +75,14 @@ namespace LihuatLib.Mechanisms
         {
             if (!owners.TryGetValue(instance, out Ownership owner)) return;
             foreach (LifeExecutionSite candidate in candidates)
-                if (byMethod.TryGetValue(candidate.Method, out List<LifeExecutionSite> group))
+                if (byMethod.TryGetValue(MethodIdentity.Declaration(candidate.Method), out List<LifeExecutionSite> group))
                     foreach (LifeExecutionSite site in group)
                         if (site.SameLocation(candidate)) owner.Sites.Remove(site.Id);
         }
 
         internal static void Refresh(IEnumerable<MethodBase> changed)
         {
-            foreach (MethodBase method in changed)
+            foreach (MethodBase method in changed.Select(MethodIdentity.Declaration).Distinct())
             {
                 try
                 {
@@ -140,6 +142,7 @@ namespace LihuatLib.Mechanisms
 
         private static IEnumerable<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase __originalMethod)
         {
+            __originalMethod = MethodIdentity.Declaration(__originalMethod);
             List<CodeInstruction> code = instructions.ToList();
             var counts = new Dictionary<MemberInfo, int>();
             if (!byMethod.TryGetValue(__originalMethod, out List<LifeExecutionSite> candidates)) candidates = new List<LifeExecutionSite>();

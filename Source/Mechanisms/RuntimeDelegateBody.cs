@@ -34,7 +34,7 @@ namespace LihuatLib.Mechanisms
             }
             writer.Write((byte)0x6f); writer.Write(RuntimeMethodBodies.Token(original, delegateType.GetMethod("Invoke")));
             writer.Write((byte)0x2a);
-            Body = MethodBodyBlob.Create(stream.ToArray(), signature.Length + 1);
+            Body = MethodBodyBlob.CreateForwarder(stream.ToArray(), signature.Length + 1, original.GetMethodBody());
             sources.Add(target.DeclaringType, this);
         }
 

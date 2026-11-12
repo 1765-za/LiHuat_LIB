@@ -1,6 +1,7 @@
 #include "GenerationAdmission.h"
 #include "NativeAuthority.h"
 #include "NativeWriteScope.h"
+#include "NativeWriteSnapshot.h"
 #include <windows.h>
 #include <cstdint>
 #include <memory>
@@ -21,6 +22,7 @@ SRWLOCK gate = SRWLOCK_INIT;
 std::unordered_map<uint64_t, std::unique_ptr<Session>> sessions;
 std::atomic<uint64_t> unrestrictedSession{0};
 uint64_t nextSession = 0, nextTicket = 0;
+lihuat::NativeWriteSnapshot writeSnapshot;
 struct Shared { Shared() { AcquireSRWLockShared(&gate); } ~Shared() { ReleaseSRWLockShared(&gate); } };
 struct Exclusive { Exclusive() { AcquireSRWLockExclusive(&gate); } ~Exclusive() { ReleaseSRWLockExclusive(&gate); } };
 Session* Find(uint64_t id) {
@@ -37,10 +39,18 @@ bool Recovering(const Session& state, uint64_t subject) {
 bool Known(const Session& state, uint64_t subject) {
     return subject && subject < state.admitted.size() && state.admitted[static_cast<size_t>(subject)] != 0;
 }
-bool Overlaps(const void* start, size_t length, const void* owned, size_t size) {
-    auto a = reinterpret_cast<uintptr_t>(start), b = reinterpret_cast<uintptr_t>(owned);
-    return a && b && length && size && a <= UINTPTR_MAX - length && b <= UINTPTR_MAX - size
-        && a < b + size && b < a + length;
+void PublishWrites() {
+    lihuat::EntryWriteIndex ranges;
+    ranges.Reserve(sessions.size() * 4);
+    for (const auto& entry : sessions) {
+        const Session& state = *entry.second;
+        ranges.Add(&entry, sizeof(entry));
+        ranges.Add(&state, sizeof(state));
+        ranges.Add(state.admitted.data(), state.admitted.capacity());
+        ranges.Add(state.permits.data(), state.permits.capacity() * sizeof(Permit));
+    }
+    ranges.Seal();
+    writeSnapshot.Publish(ranges, false);
 }
 }
 
@@ -54,6 +64,7 @@ API uint64_t __cdecl LihuatNative_AdmissionOpen(uint64_t authority) {
         auto value = std::make_unique<Session>();
         uint64_t id = ++nextSession;
         sessions.emplace(id, std::move(value));
+        PublishWrites();
         unrestrictedSession.store(id, std::memory_order_release);
         return id;
     } catch (...) { return 0; }
@@ -65,7 +76,9 @@ API int __cdecl LihuatNative_AdmissionClose(uint64_t authority, uint64_t session
     Exclusive lock;
     if (unrestrictedSession.load(std::memory_order_relaxed) == session)
         unrestrictedSession.store(0, std::memory_order_release);
-    return sessions.erase(session) ? 1 : 0;
+    if (!sessions.erase(session)) return 0;
+    PublishWrites();
+    return 1;
 }
 API int __cdecl LihuatNative_AdmissionPublish(uint64_t authority, uint64_t session, uint64_t revision, int blocked) {
     if (!lihuat::Authorized(authority)) return -10;
@@ -104,6 +117,7 @@ API int __cdecl LihuatNative_AdmissionRemember(uint64_t authority, uint64_t sess
         if (subject >= state->admitted.size()) {
             if (!present) return 1;
             state->admitted.resize(static_cast<size_t>(subject) + 1);
+            PublishWrites();
         }
         state->admitted[static_cast<size_t>(subject)] = present ? 1 : 0;
         return 1;
@@ -118,7 +132,9 @@ API uint64_t __cdecl LihuatNative_AdmissionRecover(uint64_t authority, uint64_t 
     if (!state) return 0;
     try {
         uint64_t ticket = ++nextTicket;
+        size_t capacity = state->permits.capacity();
         state->permits.push_back({ticket, subject, GetCurrentThreadId()});
+        if (capacity != state->permits.capacity()) PublishWrites();
         return ticket;
     } catch (...) { return 0; }
 }
@@ -135,12 +151,5 @@ API int __cdecl LihuatNative_AdmissionEndRecovery(uint64_t authority, uint64_t s
 }
 
 bool lihuat::GenerationAdmissionOverlaps(const void* address, size_t length) {
-    Shared lock;
-    for (const auto& entry : sessions) {
-        const Session& state = *entry.second;
-        if (Overlaps(address, length, &entry, sizeof(entry)) || Overlaps(address, length, &state, sizeof(state))
-            || Overlaps(address, length, state.admitted.data(), state.admitted.capacity())
-            || Overlaps(address, length, state.permits.data(), state.permits.capacity() * sizeof(Permit))) return true;
-    }
-    return false;
+    return writeSnapshot.Overlaps(address, length);
 }

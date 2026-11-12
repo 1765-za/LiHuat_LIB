@@ -14,7 +14,7 @@ namespace LihuatLib.Mechanisms
         internal static void Prepare(IEnumerable<MethodInfo> methods)
         {
             if (!Configuration.HighMechanismPolicy.Scanning) return;
-            MethodInfo[] roots = methods.Where(m => CanInline(m) && !prepared.Contains(m)).Distinct().ToArray();
+            MethodInfo[] roots = methods.Select(MethodIdentity.Declaration).Where(m => CanInline(m) && !prepared.Contains(m)).Distinct().ToArray();
             foreach (var group in roots.GroupBy(m => m.Module.Assembly))
             {
                 LifeCallGraphAssembly index = LifeAnalysisCoordinator.Shared.CallGraph.Require(group.Key);

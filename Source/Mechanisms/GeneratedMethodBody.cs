@@ -20,11 +20,12 @@ namespace LihuatLib.Mechanisms
             }
         }
         private static readonly ConditionalWeakTable<MethodInfo, Body> bodies = new();
-        internal static DynamicMethod For(MethodInfo source) => bodies.GetValue(source, method => new Body(method)).Method;
+        internal static DynamicMethod For(MethodInfo source) => bodies.GetValue(MethodIdentity.Declaration(source), method => new Body(method)).Method;
         internal static void Invalidate() => bodies.Clear();
 
         private static DynamicMethod Clone(MethodInfo source, Assembly assembly, Dictionary<MethodInfo, DynamicMethod> methods)
         {
+            source = MethodIdentity.Declaration(source);
             if (methods.TryGetValue(source, out var existing)) return existing;
             MethodBody body = NativeRuntime.SourceBody(source);
             if (body == null && UnsafeFieldMetadata.Resolve(source) is FieldInfo field)

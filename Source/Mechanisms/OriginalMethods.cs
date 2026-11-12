@@ -68,6 +68,7 @@ namespace LihuatLib.Mechanisms
 
         private static T Publish<T>(MethodInfo original, DynamicMethod body) where T : Delegate
         {
+            original = MethodIdentity.Declaration(original);
             lock (methods)
             {
                 if (!publications.TryGetValue(body, out MethodInfo published))
@@ -90,6 +91,7 @@ namespace LihuatLib.Mechanisms
 
         private static DynamicMethod Clone(MethodInfo original, byte graph)
         {
+            original = MethodIdentity.Declaration(original);
             lock (methods)
             {
                 Tuple<MethodInfo, byte> key = Tuple.Create(original, graph);
@@ -104,6 +106,9 @@ namespace LihuatLib.Mechanisms
                     if (called.DeclaringType == typeof(LongEventHandler) && called.Name == nameof(LongEventHandler.ExecuteWhenFinished))
                         return AccessTools.Method(typeof(DeferredCallbacks), nameof(DeferredCallbacks.Enqueue));
                     if (graph == 1 && DeathPlacementGraph.StartsAt(original, called)) return Clone(called, 6);
+                    if (graph == 1 && original.DeclaringType == typeof(Pawn) && original.Name == nameof(Pawn.MakeCorpse)
+                        && called.DeclaringType == typeof(Corpse) && called.Name == "set_InnerPawn")
+                        return AccessTools.Method(typeof(CorpseRegistration), nameof(CorpseRegistration.Attach));
                     if (graph == 1 && called.DeclaringType == typeof(RimWorld.PawnComponentsUtility))
                     {
                         if (called.Name == nameof(RimWorld.PawnComponentsUtility.RemoveComponentsOnDespawned))
@@ -124,7 +129,7 @@ namespace LihuatLib.Mechanisms
                     return called.IsAbstract || called.GetMethodBody() == null ? called : Clone(called, graph);
                 });
                 if (!PortableIlEmitter.TryEmit(original, body, CilRewrite.ReadSource(original, body), method.GetILGenerator(), out string reason, resolver,
-                    StarBlood.TickRuntimeRecovery.IndependentRewrite(original, graph, resolver)))
+                    graph == 1 ? WriteDeathState : StarBlood.TickRuntimeRecovery.IndependentRewrite(original, graph, resolver)))
                 {
                     methods.Remove(key);
                     throw new InvalidOperationException("Original IL emission failed for " + original + ": " + reason);
@@ -133,8 +138,17 @@ namespace LihuatLib.Mechanisms
             }
         }
 
+        private static bool WriteDeathState(ILGenerator generator, OpCode opcode, object operand)
+        {
+            if (opcode != OpCodes.Stfld || operand is not FieldInfo field
+                || field.DeclaringType != typeof(Pawn_HealthTracker) || field.Name != "healthState") return false;
+            generator.Emit(OpCodes.Call, AccessTools.Method(typeof(Core.PawnHealthStateAccess), nameof(Core.PawnHealthStateAccess.Write)));
+            return true;
+        }
+
         private static DynamicMethod VirtualWrapper(MethodInfo called, byte graph)
         {
+            called = MethodIdentity.Declaration(called);
             Tuple<MethodInfo, byte> key = Tuple.Create(called, graph);
             if (virtualWrappers.TryGetValue(key, out DynamicMethod existing)) return existing;
             Type[] parameters = Parameters(called);

@@ -26,7 +26,7 @@ namespace LihuatLib.Mechanisms
             {
                 LifeAnalysisResult result = LifeAnalysisCoordinator.Shared?.Resolve(new LifeAnalysisKey(LifeAnalysisKind.Reconstruction, method));
                 if (result?.Reconstruction != true) return;
-                if (NativeIlGuards.Contains(method) || Harmony.GetPatchInfo(method)?.Owners.Any() == true) return;
+                if (NativeIlGuards.Contains(method) || Integrations.HarmonyRegistrations.ReadPatches(method)?.Owners.Any() == true) return;
                 NativeIlGuards.InstallControls(new[] { method }, new[] { SerializedPawnEmitter.Build(method) });
                 Installed++;
             }

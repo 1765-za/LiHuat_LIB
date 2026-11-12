@@ -10,6 +10,7 @@ namespace LihuatLib.Mechanisms
 
         internal static MethodInfo Definition(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             if (method.IsGenericMethod && !method.IsGenericMethodDefinition) method = method.GetGenericMethodDefinition();
             Type owner = method.DeclaringType;
             if (owner?.IsConstructedGenericType == true)

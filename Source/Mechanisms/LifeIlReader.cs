@@ -62,6 +62,7 @@ namespace LihuatLib.Mechanisms
 
         public List<CodeInstruction> Read(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             trace?.Add(method);
             if (!HasMetadataBody(method)) return null;
             if (decoded != null && decoded.TryGetValue(method, out List<CodeInstruction> cached)) return cached;
@@ -82,6 +83,7 @@ namespace LihuatLib.Mechanisms
         }
         internal byte[] ReadBody(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             if (!HasMetadataBody(method)) return null;
             if (observeManaged)
             {

@@ -136,6 +136,16 @@ void lihuat::EndCodeWrite() {
 }
 bool lihuat::CodeWriteActive() { return depth != 0; }
 
+namespace lihuat {
+ICorProfilerInfo10* AcquireProfilerInformation() {
+    AcquireSRWLockShared(&writers);
+    auto info = information.load(std::memory_order_acquire);
+    if (info) info->AddRef();
+    ReleaseSRWLockShared(&writers);
+    return info;
+}
+}
+
 extern "C" __declspec(dllexport) int __cdecl LihuatNative_SuspensionReady() {
     return information.load(std::memory_order_acquire) != nullptr;
 }

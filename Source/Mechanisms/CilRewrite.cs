@@ -25,6 +25,7 @@ namespace LihuatLib.Mechanisms
 
         public static byte[] ReadBody(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             NativeRuntime.Validate(method);
             MethodBody body = method.GetMethodBody() ?? throw new InvalidOperationException("Missing metadata IL: " + method);
             return (byte[])body.GetILAsByteArray().Clone();
@@ -32,6 +33,7 @@ namespace LihuatLib.Mechanisms
 
         internal static byte[] ReadSource(MethodBase method, MethodBody body)
         {
+            method = MethodIdentity.Declaration(method);
             lock (rewrites)
                 if (method is MethodInfo info && rewrites.TryGetValue(info, out CilRewrite rewrite) && rewrite.Status.State == NativeIlState.Applied)
                     return (byte[])rewrite.replacement.Clone();
@@ -41,6 +43,7 @@ namespace LihuatLib.Mechanisms
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static CilRewrite Apply(MethodInfo method, byte[] replacement)
         {
+            method = MethodIdentity.Declaration(method);
             LibraryCapabilities.Require(LibraryCapability.RuntimeIl);
             LibraryCapabilities.RequirePublicationThread();
             CodePublicationAuthority.RequireCaller();

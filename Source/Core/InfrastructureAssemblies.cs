@@ -14,6 +14,7 @@ namespace LihuatLib.Core
         private static readonly HashSet<Assembly> assemblies = new HashSet<Assembly> { typeof(InfrastructureAssemblies).Assembly };
         private static string policyKey = ComputePolicyKey();
         internal static string PolicyKey { get { lock (assemblies) return policyKey; } }
+        internal static Assembly[] Snapshot() { lock (assemblies) return assemblies.ToArray(); }
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Register(Assembly assembly)
         {
@@ -31,9 +32,19 @@ namespace LihuatLib.Core
                     throw new System.InvalidOperationException("Infrastructure registration requires a startup consumer declaration.");
                 assemblies.Add(assembly);
                 policyKey = ComputePolicyKey();
+                try { InfrastructureMethodProtection.Register(assembly); }
+                catch { assemblies.Remove(assembly); policyKey = ComputePolicyKey(); throw; }
             }
         }
         public static bool Contains(Assembly assembly) { lock (assemblies) return assemblies.Contains(assembly); }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static bool IsCaller(Assembly observed, Assembly required = null)
+        {
+            if (required == null ? Contains(observed) : observed == required) return true;
+            MethodBase source = PatchProvenance.InfrastructureSource(new StackFrame(2, false).GetMethod());
+            return source != null && (required == null || source.Module.Assembly == required);
+        }
 
         private static string ComputePolicyKey()
         {

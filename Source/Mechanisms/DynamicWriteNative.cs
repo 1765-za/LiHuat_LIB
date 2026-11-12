@@ -20,6 +20,7 @@ namespace LihuatLib.Mechanisms
         internal static IntPtr Publish(MethodBase method, IntPtr result)
         {
             if (!DynamicWriteCatalogue.Ready || DynamicWriteCatalogue.Building || result == IntPtr.Zero || method is not MethodInfo info) return result;
+            info = MethodIdentity.Declaration(info);
             FieldInfo[] fields;
             bool authority;
             if (info is DynamicMethod dynamicMethod)

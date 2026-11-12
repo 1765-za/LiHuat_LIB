@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace LihuatLib.Endings
@@ -33,6 +34,13 @@ namespace LihuatLib.Endings
             if (!exit || replay > 0 || handlers.Count == 0) return true;
             if (cleanup > 0) return false;
             return !Dispatch(new GameEndingRequest(text, song, delay));
+        }
+
+        internal bool AllowGameOver(string text, bool allowKeepPlaying, Color screenFillColor)
+        {
+            if (allowKeepPlaying || replay > 0 || handlers.Count == 0) return true;
+            if (cleanup > 0) return false;
+            return !Dispatch(new GameEndingRequest(text, screenFillColor));
         }
 
         private bool Dispatch(GameEndingRequest request)

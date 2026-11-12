@@ -49,6 +49,7 @@ namespace LihuatLib.Mechanisms
         }
         internal static byte[] Read(MethodInfo method, byte[] diskBody)
         {
+            method = MethodIdentity.Declaration(method);
             byte[] body = ManagedBody(method);
             if (!known.ContainsKey(method) && LifeResourceEvidence.IsCustom(method.DeclaringType))
             {

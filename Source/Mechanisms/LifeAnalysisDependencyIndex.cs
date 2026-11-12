@@ -11,12 +11,12 @@ namespace LihuatLib.Mechanisms
         private readonly Dictionary<MethodInfo, HashSet<LifeAnalysisKey>> byMethod = new Dictionary<MethodInfo, HashSet<LifeAnalysisKey>>();
         internal int Edges { get; private set; }
 
-        internal LifeAnalysisKey[] Roots(MethodInfo method) => byMethod.TryGetValue(method, out HashSet<LifeAnalysisKey> roots)
+        internal LifeAnalysisKey[] Roots(MethodInfo method) => byMethod.TryGetValue(MethodIdentity.Declaration(method), out HashSet<LifeAnalysisKey> roots)
             ? roots.ToArray() : Array.Empty<LifeAnalysisKey>();
 
         internal void Replace(LifeAnalysisKey root, IEnumerable<MethodInfo> methods)
         {
-            var current = new HashSet<MethodInfo>(methods);
+            var current = new HashSet<MethodInfo>(methods.Select(MethodIdentity.Declaration));
             if (byRoot.TryGetValue(root, out HashSet<MethodInfo> previous))
                 foreach (MethodInfo method in previous)
                 {

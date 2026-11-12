@@ -134,6 +134,7 @@ namespace LihuatLib.Dispatching
 
         internal static DynamicMethod Source(MethodBase target)
         {
+            if (target is MethodInfo info) target = NativeIlGuards.Definition(info);
             if (!entries.TryGetValue(target, out Entry entry) || !entry.Handlers.Any(h => h.Phase == DispatchPhase.Transpiler))
                 return IndependentIl.Clone(target);
             DynamicMethod body = IndependentIl.New(target);
@@ -162,10 +163,12 @@ namespace LihuatLib.Dispatching
         // Foreign Harmony wrappers consume the same transformation plan without owning its registration.
         internal static void IncludeTransforms(MethodBase target, ref List<MethodInfo> transformers)
         {
+            MethodBase patchedView = target;
+            if (target is MethodInfo info) target = NativeIlGuards.Definition(info);
             if (!entries.TryGetValue(target, out Entry entry)) return;
             DispatchHandler[] own = entry.Handlers.Where(h => h.Phase == DispatchPhase.Transpiler).ToArray();
             if (own.Length == 0) return;
-            var priorities = Harmony.GetPatchInfo(target)?.Transpilers.GroupBy(p => p.PatchMethod).ToDictionary(g => g.Key, g => g.Max(p => p.priority))
+            var priorities = Harmony.GetPatchInfo(patchedView)?.Transpilers.GroupBy(p => p.PatchMethod).ToDictionary(g => g.Key, g => g.Max(p => p.priority))
                 ?? new Dictionary<MethodInfo, int>();
             var merged = transformers.Select((m, i) => (Method: m, Priority: priorities.TryGetValue(m, out int p) ? p : 400, Order: i, Own: false)).ToList();
             foreach (DispatchHandler handler in own)

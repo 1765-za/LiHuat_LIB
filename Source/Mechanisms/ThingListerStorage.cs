@@ -15,9 +15,12 @@ namespace LihuatLib.Mechanisms
         internal static void RemoveStored(ListerThings lister, Thing target) => Process(lister, target, true, true);
 
         internal static bool Registered(ListerThings lister, Thing target)
-            => definitions(lister).TryGetValue(target.def, out List<Thing> values)
-                && ReferenceListStorage<Thing>.Contains(values, target)
+            => ContainsByDefinition(lister, target)
                 && ReferenceListStorage<Thing>.Contains(groups(lister)[(int)ThingRequestGroup.Everything], target);
+
+        internal static bool ContainsByDefinition(ListerThings lister, Thing target)
+            => definitions(lister).TryGetValue(target.def, out List<Thing> values)
+                && ReferenceListStorage<Thing>.Contains(values, target);
 
         internal static bool Process(ListerThings lister, Thing target, bool remove, bool notify = false)
         {

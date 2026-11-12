@@ -24,8 +24,8 @@ namespace LihuatLib.Mechanisms
                 if (UnsafeFieldMetadata.Resolve(method) != null) writes = false;
                 else
                 {
-                    MethodBody body = NativeRuntime.SourceBody(method);
-                    if (body == null || method.IsVirtual && !method.IsFinal)
+                    var code = method.IsVirtual && !method.IsFinal ? null : MethodInstructionSource.Read(method);
+                    if (code == null)
                     {
                         int parameter = argument - (method.IsStatic ? 0 : 1);
                         ParameterInfo[] parameters = method.GetParameters();
@@ -33,8 +33,7 @@ namespace LihuatLib.Mechanisms
                     }
                     else
                     {
-                        var code = LifeIlReader.Decode(method, CilRewrite.ReadSource(method, body));
-                        writes = code == null || IndirectFieldMutation.Writes(code, _ => false,
+                        writes = IndirectFieldMutation.Writes(code, _ => false,
                             argument: index => index == argument, callWrite: (called, index) => Analyze(called, index, path));
                     }
                 }

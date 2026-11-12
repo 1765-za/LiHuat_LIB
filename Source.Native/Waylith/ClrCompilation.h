@@ -2,6 +2,7 @@
 #include <cstdint>
 
 namespace lihuat {
+bool PublishedMethod(void* method);
 bool InstallCompilationObserver(void* continuation);
 bool CompilationObserverActive();
 uint64_t CompilationNotifications();

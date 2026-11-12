@@ -14,6 +14,7 @@ namespace LihuatLib.Mechanisms
         private static readonly Func<object, RuntimeMethodHandle> runtimeHandle = CreateRuntimeHandleReader();
         private static HashSet<IntPtr> protectedMethods = new HashSet<IntPtr>();
         private static HashSet<MethodBase> genericDefinitions = new();
+        internal static MethodBase Resolve(RuntimeMethodHandle method) => metadata(method);
 
         internal static void Track(MethodBase method)
         {
@@ -91,8 +92,8 @@ namespace LihuatLib.Mechanisms
         private static bool ProtectedDefinition(RuntimeMethodHandle method)
         {
             HashSet<MethodBase> definitions = Volatile.Read(ref genericDefinitions);
-            if (definitions.Count == 0) return false;
             MethodBase candidate = metadata(method);
+            if (InfrastructureMethodProtection.Contains(candidate)) return true;
             return candidate is MethodInfo generic && GenericMethodIdentity.Applies(generic)
                 && definitions.Contains(GenericMethodIdentity.Definition(generic));
         }

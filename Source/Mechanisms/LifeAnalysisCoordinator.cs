@@ -156,6 +156,7 @@ namespace LihuatLib.Mechanisms
         internal void Invalidate(MethodInfo method)
         {
             MainThread();
+            method = MethodIdentity.Declaration(method);
             snapshots.Invalidate(method);
             LifeExecutionGuard.Invalidate(method);
             foreach (LifeAnalysisKey key in dependencies.Roots(method))

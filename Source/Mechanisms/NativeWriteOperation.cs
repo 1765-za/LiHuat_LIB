@@ -21,7 +21,7 @@ namespace LihuatLib.Mechanisms
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Execute(Action action)
         {
-            if (Assembly.GetCallingAssembly() != typeof(NativeWriteOperation).Assembly)
+            if (!InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly(), typeof(NativeWriteOperation).Assembly))
                 throw new InvalidOperationException("Native writes require the library publication gateway.");
             var invocation = new Invocation { Action = action };
             GCHandle handle = GCHandle.Alloc(invocation);

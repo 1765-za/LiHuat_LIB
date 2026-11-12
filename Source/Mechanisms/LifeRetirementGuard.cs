@@ -161,7 +161,7 @@ namespace LihuatLib.Mechanisms
             return false;
         }
 
-        private static bool DeniedBoolean(int id) => Integrations.HarmonyPrefixRegistry.Contains(entries[id].Method);
+        private static bool DeniedBoolean(int id) => Integrations.HarmonyRegistrations.Contains(entries[id].Method);
 
         private static Pawn PawnFor(Entry entry, object target) => entry.Target switch
         {

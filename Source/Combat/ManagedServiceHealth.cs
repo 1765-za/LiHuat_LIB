@@ -44,12 +44,15 @@ namespace LihuatLib.Combat
             var found = new List<ManagedServiceHealth>();
             for (int i = 0; i < body.Count; i++)
             {
-                if (body[i].operand is not MethodInfo update || !update.IsStatic || !update.ReturnType.IsValueType || update.ReturnType.IsPrimitive
-                    || !ManagedCombatIl.Signature(update, target, typeof(float))) continue;
+                if (body[i].operand is not MethodInfo update || !update.IsStatic || !update.ReturnType.IsValueType || update.ReturnType.IsPrimitive) continue;
+                var parameters = update.GetParameters();
+                if (parameters.Length is not (2 or 3) || parameters[0].ParameterType != target || parameters[1].ParameterType != typeof(float)
+                    || parameters.Length == 3 && parameters[2].ParameterType != update.ReturnType) continue;
                 int at = i - 1;
-                if (!ManagedValueExpression.ReadInputs(body, ref at, 2, 0, out var inputs) || !inputs[0].IsThis
+                if (!ManagedValueExpression.ReadInputs(body, ref at, parameters.Length, 0, out var inputs) || !inputs[0].IsThis
                     || !ManagedHealthReduction.ReadsDamage(inputs[1], 1)) continue;
-                if (!FindSnapshot(update, il, out MethodInfo reader, out FieldInfo value, out MethodInfo writer, out var reduction)) continue;
+                var supplied = inputs.Length == 3 ? inputs[2] : null;
+                if (!FindSnapshot(update, supplied, il, out MethodInfo reader, out FieldInfo value, out MethodInfo writer, out var reduction)) continue;
                 var proof = new ManagedSnapshotReader(il);
                 if (!proof.Inspect(reader) || !ManagedServiceProof.Lifecycle(target, route, reader, il)
                     || !ManagedServiceProof.WritesValue(writer, proof.Fields, il)) continue;
@@ -64,7 +67,7 @@ namespace LihuatLib.Combat
             return ManagedCombatIl.Only(found);
         }
 
-        private static bool FindSnapshot(MethodInfo update, ManagedCombatIl il, out MethodInfo reader, out FieldInfo field,
+        private static bool FindSnapshot(MethodInfo update, ManagedValueExpression supplied, ManagedCombatIl il, out MethodInfo reader, out FieldInfo field,
             out MethodInfo writer, out ManagedHealthReduction reduction)
         {
             reader = null; field = null; writer = null; reduction = null;
@@ -77,22 +80,23 @@ namespace LihuatLib.Combat
                 int at = i - 1;
                 if (!ManagedValueExpression.ReadInputs(body, ref at, 2, 0, out var args) || !args[0].IsThis) continue;
                 var candidate = ManagedHealthReduction.Create(args[1], i, typeof(float),
-                    v => Snapshot(v, update, out _, out _), v => v.DependsOnArgument(1));
+                    v => Snapshot(v, update, supplied, out _, out _), v => v.DependsOnArgument(1));
                 if (candidate == null) continue;
                 if (writer != null) return false;
-                Snapshot(candidate.Health, update, out reader, out field);
+                Snapshot(candidate.Health, update, supplied, out reader, out field);
                 writer = call; reduction = candidate;
             }
             return writer != null;
         }
 
-        private static bool Snapshot(ManagedValueExpression value, MethodInfo update, out MethodInfo reader, out FieldInfo field)
+        private static bool Snapshot(ManagedValueExpression value, MethodInfo update, ManagedValueExpression supplied, out MethodInfo reader, out FieldInfo field)
         {
             reader = null; field = null;
             var previous = value.Unwrapped();
             if (previous.Operation != OpCodes.Ldfld || previous.Operand is not FieldInfo number || number.FieldType != typeof(float)
                 || !number.IsInitOnly || number.DeclaringType != update.ReturnType) return false;
             var snapshot = previous.Inputs[0].Unwrapped();
+            if (snapshot.Argument == 2 && supplied != null) snapshot = supplied.Unwrapped();
             if (snapshot.Operand is not MethodInfo read || !read.IsStatic || read.ReturnType != update.ReturnType
                 || !ManagedCombatIl.Signature(read, update.GetParameters()[0].ParameterType)
                 || snapshot.Inputs.Length != 1 || !snapshot.Inputs[0].IsThis) return false;
@@ -128,7 +132,14 @@ namespace LihuatLib.Combat
             if (!PortableIlEmitter.TryEmit(route, route.GetMethodBody(), il.ReadBody(route), clone.GetILGenerator(), out _, rewrite: (emit, op, operand) =>
             {
                 if (++instruction == updateAt)
-                { emit.Emit(OpCodes.Pop); LoadAmount(emit); emit.Emit(OpCodes.Call, commit); return true; }
+                {
+                    LocalBuilder snapshot = null;
+                    if (update.GetParameters().Length == 3)
+                    { snapshot = emit.DeclareLocal(update.ReturnType); emit.Emit(OpCodes.Stloc, snapshot); }
+                    emit.Emit(OpCodes.Pop); LoadAmount(emit);
+                    if (snapshot != null) emit.Emit(OpCodes.Ldloc, snapshot);
+                    emit.Emit(OpCodes.Call, commit); return true;
+                }
                 if (ManagedCombatIl.StoredLocal(op, operand) is not int local || !locals.Contains(local)) return false;
                 emit.Emit(OpCodes.Pop); LoadAmount(emit);
                 ManagedHealthWrite.ConvertAmount(emit, route.GetMethodBody().LocalVariables[local].LocalType);

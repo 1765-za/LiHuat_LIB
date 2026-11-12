@@ -28,7 +28,7 @@ namespace LihuatLib.Mechanisms
         public static IlRegistration Register(MethodInfo method, string owner, string key, int order, Func<MethodInfo, DynamicMethod> build, bool bypassDeveloper = false)
         {
             LibraryCapabilities.Require(LibraryCapability.IlDispatch);
-            if (!InfrastructureAssemblies.Contains(Assembly.GetCallingAssembly()))
+            if (!InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()))
                 throw new InvalidOperationException("Register the consuming assembly before declaring IL handlers.");
             if (method == null) throw new ArgumentNullException(nameof(method));
             if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(key) || owner.Contains(":") || key.Contains(":"))

@@ -50,7 +50,7 @@ namespace LihuatLib.Mechanisms
                 if (installed.Contains(group.Key)) continue;
                 try
                 {
-                    var patches = Harmony.GetPatchInfo(group.Key);
+                    var patches = Integrations.HarmonyRegistrations.ReadPatches(group.Key);
                     if (NativeIlGuards.Contains(group.Key) || patches != null && patches.Owners.Any())
                         throw new InvalidOperationException("Supply caller already has an execution owner.");
                     var plans = ids.Select(id => entries[id].Site).ToArray();

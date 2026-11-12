@@ -102,7 +102,8 @@ namespace LihuatLib.Mechanisms
         }
         private static void PrepareDependencies(DynamicMethod method, HashSet<DynamicMethod> seen)
         {
-            if (!seen.Add(method) || !methods.TryGetValue(method, out Entry entry) || entry.Trusted) return;
+            if (!seen.Add(method) || PatchProvenance.ReplacesInfrastructure(method)
+                || !methods.TryGetValue(method, out Entry entry) || entry.Trusted) return;
             entry.Addresses?.Prepare();
             DynamicMethod[] calls;
             lock (entry.Fields) calls = entry.Calls.ToArray();
@@ -162,6 +163,8 @@ namespace LihuatLib.Mechanisms
             foreach (StackFrame frame in new StackTrace(false).GetFrames() ?? Array.Empty<StackFrame>())
             {
                 MethodBase method = frame.GetMethod();
+                MethodBase source = PatchProvenance.InfrastructureSource(method);
+                if (source != null) return source.Module.Assembly;
                 Type type = method?.DeclaringType;
                 if (type == null || type == typeof(DynamicWriteCatalogue) || type == typeof(DynamicWriteBoundary) || type == typeof(DynamicIlCatalogue)) continue;
                 Assembly assembly = type.Assembly;

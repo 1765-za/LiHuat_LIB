@@ -19,6 +19,7 @@ namespace LihuatLib.Mechanisms
 
         internal LifeMethodSnapshot Find(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             lock (entries)
             {
                 if (!entries.TryGetValue(method, out var node)) return null;
@@ -28,6 +29,7 @@ namespace LihuatLib.Mechanisms
         }
         internal LifeMethodSnapshot Intern(MethodInfo method, byte[] body, Type[] locals)
         {
+            method = MethodIdentity.Declaration(method);
             lock (entries)
             {
                 if (entries.TryGetValue(method, out var node))
@@ -49,6 +51,7 @@ namespace LihuatLib.Mechanisms
         }
         internal void Invalidate(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             lock (entries)
                 if (entries.TryGetValue(method, out var node)) Remove(node);
         }

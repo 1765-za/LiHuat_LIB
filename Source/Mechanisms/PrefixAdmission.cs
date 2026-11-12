@@ -27,7 +27,7 @@ namespace LihuatLib.Mechanisms
         {
             LibraryCapabilities.Require(LibraryCapability.IlDispatch);
             LibraryCapabilities.RequirePublicationThread();
-            if (!InfrastructureAssemblies.Contains(Assembly.GetCallingAssembly()))
+            if (!InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()))
                 throw new InvalidOperationException("Admission owner is not registered.");
             if (method == null || method.IsStatic || method.DeclaringType.IsValueType)
                 throw new ArgumentException("Admission requires an instance entry with a reference subject.", nameof(method));
@@ -44,11 +44,12 @@ namespace LihuatLib.Mechanisms
 
         internal static void Prepare(IEnumerable prefixes, MethodBase original)
         {
+            if (original is MethodInfo method) original = NativeIlGuards.Definition(method);
             if (!entries.TryGetValue(original, out int id)) return;
             Entry entry = policies[id];
             foreach (object call in prefixes)
             {
-                MethodInfo prefix = (MethodInfo)patchMethod.GetValue(call);
+                MethodInfo prefix = MethodIdentity.Declaration((MethodInfo)patchMethod.GetValue(call));
                 if (prefix.ReturnType != typeof(bool) || InfrastructureAssemblies.Contains(prefix.Module.Assembly) || entry.Calls.ContainsKey(prefix)) continue;
                 entry.Calls[prefix] = PrefixAdmissionEmitter.Build(prefix, original.DeclaringType, id);
             }
@@ -56,9 +57,11 @@ namespace LihuatLib.Mechanisms
 
         internal static CodeInstruction Route(object config, CodeInstruction code)
         {
-            if (code.opcode != OpCodes.Call || !(code.operand is MethodInfo prefix)
-                || !entries.TryGetValue(PrefixAdmissionEmission.Original(config), out int id)
-                || !policies[id].Calls.TryGetValue(prefix, out MethodInfo call)) return null;
+            if (code.opcode != OpCodes.Call || !(code.operand is MethodInfo prefix)) return null;
+            MethodBase original = PrefixAdmissionEmission.Original(config);
+            if (original is MethodInfo method) original = NativeIlGuards.Definition(method);
+            if (!entries.TryGetValue(original, out int id)
+                || !policies[id].Calls.TryGetValue(MethodIdentity.Declaration(prefix), out MethodInfo call)) return null;
             return new CodeInstruction(code) { operand = call };
         }
         internal static bool Protects(int id, object subject) => policies[id].Protects(subject);

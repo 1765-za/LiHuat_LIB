@@ -29,6 +29,7 @@ namespace LihuatLib.Mechanisms
             if (!LihuatLib.Configuration.HighMechanismPolicy.NativeProtection) return;
             CodePublicationAuthority.RequireCaller();
             CodePublicationAuthority.RequireBlueprint(handler);
+            handler = MethodIdentity.Declaration(handler);
             if (registered.Contains(handler)) return;
             var callback = (Func<object, bool>)GeneratedIntegrity.Create(handler).CreateDelegate(typeof(Func<object, bool>));
             handlers.Add(callback);

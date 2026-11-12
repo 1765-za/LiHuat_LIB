@@ -86,6 +86,8 @@ namespace LihuatLib.Mechanisms
                 status = nextStatus; publication = nextPublication; notifications = nextNotifications;
                 flush = nextFlush; observe = nextObserve;
                 authority = NativeModule.Authority;
+                stage = "infrastructure method protection";
+                InfrastructureMethodProtection.Install();
                 Volatile.Write(ref module, NativeModule.Handle);
             }
             catch (Exception error)

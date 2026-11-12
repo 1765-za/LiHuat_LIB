@@ -12,6 +12,7 @@ namespace LihuatLib.Mechanisms
         internal static void Install()
         {
             PawnGenerationBoundary.Install();
+            QuestGenerationBoundary.Install();
             MethodInfo gate = AccessTools.Method(typeof(NativeAdmissionGuards), nameof(Admit));
             NativeIlGuards.Scoped(AccessTools.Method(typeof(SkipUtility), nameof(SkipUtility.SkipTo)),
                 AccessTools.Method(typeof(NativeAdmissionGuards), nameof(BeginSkip)), new[] { 0, 1, 2 },

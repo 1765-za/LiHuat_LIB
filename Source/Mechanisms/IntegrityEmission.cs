@@ -63,7 +63,7 @@ namespace LihuatLib.Mechanisms
             {
                 generator.Emit(OpCodes.Stloc, result);
                 generator.Emit(OpCodes.Ldarg_0); generator.Emit(OpCodes.Ldarg_1);
-                generator.Emit(OpCodes.Call, typeof(Integrations.HarmonyPrefixRegistry).GetMethod("Published", Methods));
+                generator.Emit(OpCodes.Call, typeof(Integrations.HarmonyRegistrations).GetMethod("Published", Methods));
                 generator.Emit(OpCodes.Ldloc, result);
             }
             generator.Emit(OpCodes.Ret);

@@ -28,16 +28,17 @@ namespace LihuatLib.Mechanisms
             new[] { typeof(Hediff), typeof(BodyPartRecord), typeof(DamageInfo?), typeof(DamageWorker.DamageResult) });
 
         internal MethodInfo Worker(Type type) => workers.GetOrAdd(type,
-            worker => AccessTools.Method(worker, "Apply", new[] { typeof(DamageInfo), typeof(Thing) }));
+            worker => MethodIdentity.Declaration(AccessTools.Method(worker, "Apply", new[] { typeof(DamageInfo), typeof(Thing) })));
 
         internal MethodInfo[] Read(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             Entry entry = entries.GetOrAdd(method, _ => new Entry());
             int revision = Volatile.Read(ref entry.Revision);
             Snapshot snapshot = Volatile.Read(ref entry.Snapshot);
             if (snapshot != null && snapshot.Revision == revision) return snapshot.Methods;
             var methods = new List<MethodInfo> { method };
-            HarmonyLib.Patches patches = Harmony.GetPatchInfo(method);
+            HarmonyLib.Patches patches = Integrations.HarmonyRegistrations.ReadPatches(method);
             if (patches != null)
             {
                 foreach (Patch patch in patches.Prefixes) methods.Add(patch.PatchMethod);
@@ -52,6 +53,7 @@ namespace LihuatLib.Mechanisms
 
         internal void Invalidate(MethodBase method)
         {
+            method = MethodIdentity.Declaration(method);
             if (entries.TryGetValue(method, out Entry entry))
             {
                 Interlocked.Increment(ref entry.Revision);

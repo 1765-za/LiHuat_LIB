@@ -13,7 +13,7 @@ namespace LihuatLib.Mechanisms
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Configure(HighMechanism disabled)
         {
-            if (Assembly.GetCallingAssembly() != typeof(NativeHighMechanisms).Assembly)
+            if (!InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly(), typeof(NativeHighMechanisms).Assembly))
                 throw new InvalidOperationException("Native mechanism selection requires library startup authority.");
             var configure = NativeModule.Bind<ConfigureCall>("LihuatNative_ConfigureHighMechanisms");
             if (configure(NativeModule.Authority, (uint)disabled) != 1)

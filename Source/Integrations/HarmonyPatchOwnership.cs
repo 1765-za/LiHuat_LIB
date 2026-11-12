@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using HarmonyLib;
@@ -14,27 +15,64 @@ namespace LihuatLib.Integrations
         private static readonly Type coreDetour = typeof(Harmony).Assembly.GetType("MonoMod.Core.ICoreDetourBase", true);
         private static readonly MethodInfo undo = coreDetour.GetMethod("Undo"), apply = coreDetour.GetMethod("Apply");
 
-        internal static void Replace(MethodBase method, byte[] body, out IntPtr previous, out long expected)
+        internal static MethodBase ActiveView(MethodBase[] views)
         {
+            if (views.Length == 1) return views[0];
             var registry = (IDictionary)detours.GetValue(null);
             lock (registry)
             {
-                object existing = registry[method];
-                if (existing != null) undo.Invoke(existing, null);
+                MethodBase[] active = views.Where(view => registry[view] is object detour && HarmonyDetourState.Active(detour)).ToArray();
+                if (active.Length != 1) throw new InvalidOperationException("Inherited Harmony views do not identify one active wrapper: " + views[0]);
+                return active[0];
+            }
+        }
+
+        internal static void Replace(MethodBase method, byte[] body, out IntPtr previous, out long expected)
+        {
+            MethodBase[] views = HarmonyRegistrations.TargetViews(method);
+            var registry = (IDictionary)detours.GetValue(null);
+            lock (registry)
+            {
+                var existing = views.Select(view => (View: view, Detour: registry[view]))
+                    .Where(entry => entry.Detour != null).ToArray();
+                var applied = existing.Where(entry => HarmonyDetourState.Applied(entry.Detour))
+                    .OrderBy(entry => HarmonyDetourState.Active(entry.Detour)).ToArray();
+                int detached = 0;
                 try
                 {
+                    for (; detached < applied.Length; detached++) undo.Invoke(applied[detached].Detour, null);
                     previous = CoreClrEntryAddress.Code(method);
                     expected = Marshal.ReadInt64(previous);
                     RuntimeMethodBodies.Replace(method, body);
                 }
-                catch
+                catch (Exception failure)
                 {
-                    if (existing != null) apply.Invoke(existing, null);
+                    try { for (int i = 0; i < detached; i++) apply.Invoke(applied[i].Detour, null); }
+                    catch (Exception rollback) { throw new AggregateException("Harmony handoff and rollback failed.", failure, rollback); }
                     throw;
                 }
-                if (existing == null) return;
-                registry.Remove(method);
-                ((IDisposable)existing).Dispose();
+                foreach (var entry in existing)
+                {
+                    registry.Remove(entry.View);
+                    ((IDisposable)entry.Detour).Dispose();
+                }
+            }
+        }
+
+        internal static void Release(MethodBase method)
+        {
+            MethodBase[] views = HarmonyRegistrations.TargetViews(method);
+            var registry = (IDictionary)detours.GetValue(null);
+            lock (registry)
+            {
+                foreach (MethodBase view in views)
+                {
+                    object detour = registry[view];
+                    if (detour == null) continue;
+                    if (HarmonyDetourState.Applied(detour)) undo.Invoke(detour, null);
+                    registry.Remove(view);
+                    ((IDisposable)detour).Dispose();
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 #include "HighMechanisms.h"
 #include "EntryMemory.h"
 #include "EntryWriteIndex.h"
+#include "NativeWriteSnapshot.h"
 #include "ClrCompilation.h"
 #include "ClrInlining.h"
 #include "ClrJitSlot.h"
@@ -40,6 +41,7 @@ std::atomic<uint32_t> activeEntries{0};
 std::atomic<uint64_t> staleCompilations{0};
 std::atomic<uint64_t> nextGeneration{0};
 lihuat::EntryWriteIndex writeEntries;
+lihuat::NativeWriteSnapshot writeSnapshot;
 thread_local void* publishing = nullptr;
 struct Exclusive {
     Exclusive() { AcquireSRWLockExclusive(&registryLock); }
@@ -51,6 +53,9 @@ struct Shared {
 };
 
 void IndexWrites() {
+    size_t capacity = registry.size() * 5;
+    for (const auto& pair : registry) capacity += pair.second->route.count + pair.second->sites.size();
+    auto previous = writeEntries.Reserve(capacity);
     writeEntries.Clear();
     for (const auto& pair : registry) {
         const Record& record = *pair.second;
@@ -66,6 +71,7 @@ void IndexWrites() {
         for (const Site& site : record.sites) writeEntries.Add(site.address, 16);
     }
     writeEntries.Seal();
+    writeSnapshot.Publish(writeEntries);
 }
 
 uint32_t State(const Record& record, uint8_t*& current) {
@@ -139,8 +145,7 @@ bool lihuat::NativeWritesOverlap(const void* address, size_t length) {
     if (lihuat::NativeMemoryOverlaps(address, length) || lihuat::CompilationSlotOverlaps(address, length)
         || lihuat::GenericBodyOverlaps(address, length) || lihuat::ProfilerRequestsOverlaps(address, length)
         || lihuat::GenerationAdmissionOverlaps(address, length) || lihuat::NativeMethodGatesOverlap(address, length)) return true;
-    Shared lock;
-    return writeEntries.OwnsStorage(address, length) || writeEntries.Overlaps(address, length);
+    return writeSnapshot.Overlaps(address, length);
 }
 
 bool lihuat::NativeOutputAllowed(const void* address, size_t length) {
@@ -169,7 +174,6 @@ API int __cdecl LihuatNative_Register(uint64_t authority, void* key, void* preco
         if (!lihuat::TryRead(control, record->controlBytes)) return -4;
         record->sites.reserve(InitialSites);
         record->sites.push_back({previous, expected});
-        writeEntries.ReserveAdditional(6 + lihuat::EntryRoute::MaxObservations);
         record->relay = lihuat::AllocateRelay(control);
         if (!record->relay) return 0;
         record->installed = lihuat::Branch(record->relay);
@@ -195,7 +199,6 @@ API int __cdecl LihuatNative_Publish(uint64_t authority, void* key, uint8_t* pre
     Record& record = *found->second;
     try {
         record.sites.reserve(record.sites.size() + 2);
-        writeEntries.ReserveAdditional(2 + lihuat::EntryRoute::MaxObservations);
     } catch (const std::bad_alloc&) { return 0; }
     void** slot; uint8_t* current;
     uint64_t revision = record.route.revision;
@@ -248,7 +251,6 @@ API int __cdecl LihuatNative_Retain(uint64_t authority, void* key, uint8_t* addr
     if (!lihuat::TryRead(address, observed) || observed != expected) return -6;
     try {
         record.sites.reserve(record.sites.size() + 1);
-        writeEntries.ReserveAdditional(2);
         if (!lihuat::Exchange(address, expected, record.installed)) return -7;
         record.sites.push_back({address, expected});
         IndexWrites();
@@ -270,6 +272,11 @@ API int __cdecl LihuatNative_Status(void* key, Snapshot* status, uint32_t size) 
 }
 
 bool lihuat::HasProtectedEntries() { return activeEntries.load(std::memory_order_acquire) != 0; }
+bool lihuat::PublishedMethod(void* method) {
+    if (method == publishing) return true;
+    Shared lock;
+    return registry.find(method) != registry.end();
+}
 uint32_t lihuat::ProtectedEntryCount() { return activeEntries.load(std::memory_order_acquire); }
 uint64_t lihuat::RegistrationRevision() { return nextGeneration.load(std::memory_order_acquire); }
 uint64_t lihuat::StaleCompilations() { return staleCompilations.load(std::memory_order_relaxed); }
@@ -307,7 +314,6 @@ bool lihuat::Compiled(void* key, uint64_t generation, uint8_t* code, uint64_t si
     uint8_t* emitted = writable ? writable : code;
     if (size < 8 || !lihuat::TryRead(emitted, original)) { record.failure = 6; return false; }
     try {
-        writeEntries.ReserveAdditional(2);
         const Site* storage = record.sites.data();
         record.sites.push_back({code, original});
         if (!lihuat::ExchangeUnpublished(code, emitted, original, record.installed)) {
@@ -317,7 +323,7 @@ bool lihuat::Compiled(void* key, uint64_t generation, uint8_t* code, uint64_t si
         }
         ++record.publications;
         if (storage != record.sites.data()) IndexWrites();
-        else writeEntries.Include(code, 16);
+        else { auto previous = writeEntries.Include(code, 16); writeSnapshot.Publish(writeEntries); }
         return true;
     } catch (const std::bad_alloc&) { record.failure = 6; return false; }
 }

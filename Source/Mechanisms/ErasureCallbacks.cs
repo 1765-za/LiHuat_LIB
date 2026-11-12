@@ -25,6 +25,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             if (!LibraryCapabilities.Has(LibraryCapability.Erasure)) return;
             if (!LifeIlReader.HasMetadataBody(method) || installed.Contains(method) || !LifeResourceEvidence.IsCustom(method.DeclaringType)
                 || method.IsGenericMethod || method.DeclaringType.IsGenericType || method.DeclaringType.IsValueType

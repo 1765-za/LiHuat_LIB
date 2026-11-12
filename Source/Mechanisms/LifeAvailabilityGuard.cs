@@ -110,7 +110,7 @@ namespace LihuatLib.Mechanisms
         }
 
         internal static void QueueRefresh(MethodInfo method)
-        { if (observed.Contains(method)) dirty = true; }
+        { if (observed.Contains(MethodIdentity.Declaration(method))) dirty = true; }
 
         private static bool Allows(int id, object target)
         {
@@ -124,6 +124,6 @@ namespace LihuatLib.Mechanisms
 
         private static bool Denied(int id) => entries[id].Denied;
 
-        public static bool Guards(MethodInfo method) => installed.TryGetValue(method, out int id) && entries[id].Active;
+        public static bool Guards(MethodInfo method) => installed.TryGetValue(MethodIdentity.Declaration(method), out int id) && entries[id].Active;
     }
 }

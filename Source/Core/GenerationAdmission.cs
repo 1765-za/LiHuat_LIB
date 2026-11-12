@@ -47,7 +47,7 @@ namespace LihuatLib.Core
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void Publish(string owner, bool blocked)
         {
-            RequireCaller(Assembly.GetCallingAssembly());
+            RequireCaller(InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()));
             if (string.IsNullOrWhiteSpace(owner)) throw new ArgumentException("A prohibition owner is required.", nameof(owner));
             lock (publications)
             {
@@ -67,7 +67,7 @@ namespace LihuatLib.Core
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal void CompleteLoad()
         {
-            RequireCaller(Assembly.GetCallingAssembly());
+            RequireCaller(InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()));
             lock (publications) { Ready = true; PublishCurrent(); }
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -84,28 +84,28 @@ namespace LihuatLib.Core
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal void Remember(Pawn pawn)
         {
-            RequireCaller(Assembly.GetCallingAssembly());
+            RequireCaller(InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()));
             if (pawn == null || PawnLife.Dead(pawn)) return;
             if (!NativeGenerationAdmission.Remember(session, Identify(pawn), true)) return;
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal void Forget(Pawn pawn)
         {
-            RequireCaller(Assembly.GetCallingAssembly());
+            RequireCaller(InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()));
             ulong identity = Find(pawn);
             if (identity != 0) NativeGenerationAdmission.Remember(session, identity, false);
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
         public RecoveryPermit Recover(Pawn pawn)
         {
-            RequireCaller(Assembly.GetCallingAssembly());
+            RequireCaller(InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly()));
             if (pawn == null) throw new ArgumentNullException(nameof(pawn));
             return new RecoveryPermit(this, NativeGenerationAdmission.Recover(session, Identify(pawn)));
         }
-        private void RequireCaller(Assembly caller)
+        private void RequireCaller(bool authorized)
         {
             if (!ReferenceEquals(LihuatGame.Current?.Admission, this)
-                || !InfrastructureAssemblies.Contains(caller))
+                || !authorized)
                 throw new InvalidOperationException("Admission changes require the current game's infrastructure authority.");
         }
     }

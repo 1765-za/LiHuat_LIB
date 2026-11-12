@@ -49,6 +49,7 @@ namespace LihuatLib.Mechanisms
 
         private List<CodeInstruction> Read(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             Reads.Add(method);
             try { return reader.Read(method); }
             catch (Exception) { Unreadable++; return null; }
@@ -61,13 +62,13 @@ namespace LihuatLib.Mechanisms
                 if (ProposedPrefixes.TryGetValue(root, out MethodInfo[] proposed))
                 {
                     foreach (MethodInfo prefix in proposed)
-                        if (LifeResourceEvidence.IsCustom(prefix.DeclaringType)) Prefixes.Add(prefix);
+                        if (LifeResourceEvidence.IsCustom(prefix.DeclaringType)) Prefixes.Add(MethodIdentity.Declaration(prefix));
                     continue;
                 }
-                HarmonyLib.Patches patches = Harmony.GetPatchInfo(root);
+                HarmonyLib.Patches patches = Integrations.HarmonyRegistrations.ReadPatches(root);
                 if (patches == null) continue;
                 foreach (Patch patch in patches.Prefixes)
-                    if (LifeResourceEvidence.IsCustom(patch.PatchMethod.DeclaringType)) Prefixes.Add(patch.PatchMethod);
+                    if (LifeResourceEvidence.IsCustom(patch.PatchMethod.DeclaringType)) Prefixes.Add(MethodIdentity.Declaration(patch.PatchMethod));
             }
             return Prefixes;
         }

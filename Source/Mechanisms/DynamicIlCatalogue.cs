@@ -14,6 +14,7 @@ namespace LihuatLib.Mechanisms
             internal readonly DynamicILInfo Info;
             internal readonly Dictionary<int, MemberInfo> Tokens = new();
             internal byte[] Analyzed;
+            internal byte[] SourceCode;
             internal int TokenCount;
             internal Body(DynamicILInfo info) { Info = info; }
         }
@@ -23,7 +24,7 @@ namespace LihuatLib.Mechanisms
         {
             if (!bodies.TryGetValue(method, out Body body)) return null;
             lock (body.Tokens) return LifeIlReader.Decode(Code(body.Info), (_, token) => body.Tokens.TryGetValue(token, out MemberInfo member)
-                ? member : FieldValueReader.ResolveToken(scope.GetValue(body.Info), token));
+                ? member : MethodInstructionSource.ResolveToken(scope.GetValue(body.Info), token));
         }
         [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_code")]
         private static extern ref byte[] Code(DynamicILInfo info);
@@ -56,6 +57,7 @@ namespace LihuatLib.Mechanisms
         {
             lock (body.Tokens)
             {
+                byte[] source = code;
                 code = DynamicRootMutation.Rewrite(code, token => body.Tokens.TryGetValue(token, out MemberInfo member) ? member : null,
                     setter => info.GetTokenFor(setter), DynamicWriteCatalogue.AddressResult(info.DynamicMethod.ReturnType));
                 code = DynamicLifecycleCalls.Rewrite(code, token => body.Tokens.TryGetValue(token, out MemberInfo member) ? member : null,
@@ -63,8 +65,22 @@ namespace LihuatLib.Mechanisms
                 if (!DynamicWriteCatalogue.Register(info.DynamicMethod).Trusted)
                     code = ObjectAddressCalls.Rewrite(code, token => body.Tokens.TryGetValue(token, out MemberInfo member) ? member : null,
                         guarded => info.GetTokenFor(guarded.MethodHandle));
+                body.SourceCode = ReferenceEquals(code, source) ? null : (byte[])source.Clone();
             }
             return code;
+        }
+        internal static void AcceptInfrastructureBody(MethodInfo method)
+        {
+            if (method is not DynamicMethod dynamicMethod || !bodies.TryGetValue(dynamicMethod, out Body body)) return;
+            lock (body.Tokens)
+            {
+                if (body.SourceCode == null) return;
+                // Harmony identifies the source after emission and before publishing the executable entry.
+                Code(body.Info) = body.SourceCode;
+                body.SourceCode = null;
+                body.Analyzed = null;
+                body.TokenCount = 0;
+            }
         }
         private static void AfterCode(bool state) { }
         private static DynamicMethod PointerCode(MethodInfo original, MethodInfo continuation)

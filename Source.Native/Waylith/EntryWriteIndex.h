@@ -8,12 +8,25 @@ class EntryWriteIndex {
     struct Range { uintptr_t begin, end; };
     std::vector<Range> ranges;
 public:
-    void Reserve(size_t capacity) { ranges.reserve(capacity); }
-    void Clear() { ranges.clear(); }
-    void ReserveAdditional(size_t count) {
-        if (ranges.size() + count > ranges.capacity()) ranges.reserve((std::max)(ranges.size() + count, ranges.capacity() * 2));
+    using RetiredStorage = std::vector<Range>;
+    // The caller retains the old allocation until publishing its replacement ownership.
+    RetiredStorage Reserve(size_t capacity) {
+        if (capacity <= ranges.capacity()) return {};
+        RetiredStorage previous;
+        previous.reserve((std::max)(capacity, ranges.capacity() * 2));
+        previous.assign(ranges.begin(), ranges.end());
+        previous.swap(ranges);
+        return previous;
     }
-    void Include(const void* address, size_t length) {
+    void Clear() { ranges.clear(); }
+    void AddStorageTo(EntryWriteIndex& destination) const {
+        destination.Add(ranges.data(), ranges.capacity() * sizeof(Range));
+    }
+    RetiredStorage ReserveAdditional(size_t count) {
+        return Reserve(ranges.size() + count);
+    }
+    RetiredStorage Include(const void* address, size_t length) {
+        auto previous = ReserveAdditional(1);
         uintptr_t begin = reinterpret_cast<uintptr_t>(address), end = begin + length;
         auto first = std::lower_bound(ranges.begin(), ranges.end(), begin,
             [](const Range& range, uintptr_t value) { return range.end < value; });
@@ -23,6 +36,7 @@ public:
         }
         auto at = ranges.erase(first, last);
         ranges.insert(at, {begin, end});
+        return previous;
     }
     void Add(const void* address, size_t length) {
         uintptr_t begin = reinterpret_cast<uintptr_t>(address);

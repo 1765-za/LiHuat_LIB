@@ -17,10 +17,11 @@ namespace LihuatLib.Mechanisms
         private static readonly AccessTools.FieldRef<Pawn_HealthTracker, Pawn> healthPawn = AccessTools.FieldRefAccess<Pawn_HealthTracker, Pawn>("pawn");
         public static int InstalledSites => sites.Count(s => s.Installed);
 
-        internal static List<LifeDeferredSite> For(MethodBase method) => byMethod.TryGetValue(method, out List<LifeDeferredSite> found) ? found : null;
+        internal static List<LifeDeferredSite> For(MethodBase method) => byMethod.TryGetValue(MethodIdentity.Declaration(method), out List<LifeDeferredSite> found) ? found : null;
 
         internal static bool Invalidate(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             if (!byMethod.TryGetValue(method, out List<LifeDeferredSite> previous)) return false;
             foreach (LifeDeferredSite site in previous) site.Installed = false;
             byMethod.Remove(method);
@@ -33,6 +34,7 @@ namespace LihuatLib.Mechanisms
             var changed = new HashSet<MethodBase>();
             foreach (LifeDeferredSite candidate in candidates)
             {
+                candidate.Method = MethodIdentity.Declaration(candidate.Method);
                 MethodInfo method = candidate.Method;
                 if (method.IsGenericMethod || method.DeclaringType.IsGenericType || method.DeclaringType.IsValueType || method.Module.Assembly.IsDynamic) continue;
                 if (!byMethod.TryGetValue(method, out List<LifeDeferredSite> group)) byMethod[method] = group = new List<LifeDeferredSite>();

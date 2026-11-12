@@ -18,7 +18,7 @@ namespace LihuatLib.Mechanisms
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Run(Action action)
         {
-            if (Assembly.GetCallingAssembly() != typeof(ExecutableWriteProtection).Assembly)
+            if (!InfrastructureAssemblies.IsCaller(Assembly.GetCallingAssembly(), typeof(ExecutableWriteProtection).Assembly))
                 throw new InvalidOperationException("Executable writes require the library publication gateway.");
             writing++;
             try { NativeWriteOperation.Execute(action); }

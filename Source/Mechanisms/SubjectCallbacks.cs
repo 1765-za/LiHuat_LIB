@@ -40,6 +40,7 @@ namespace LihuatLib.Mechanisms
 
         internal static void Install(MethodInfo method)
         {
+            method = MethodIdentity.Declaration(method);
             if (!Configuration.HighMechanismPolicy.Scanning) return;
             if (!Eligible(method) || installed.Contains(method)) return;
             NativeInlineCallers.Prepare(new[] { method });

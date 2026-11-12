@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace LihuatLib.Endings
@@ -12,12 +13,16 @@ namespace LihuatLib.Endings
         private string text;
         private SongDef song;
         private float delay;
+        private bool gameOver;
+        private Color screenFillColor;
         private Window window;
         private bool settled;
 
         public GameEndingRequest() { }
         internal GameEndingRequest(Window window) { this.window = window; windowType = window.GetType().AssemblyQualifiedName; }
         internal GameEndingRequest(string text, SongDef song, float delay) { this.text = text; this.song = song; this.delay = delay; }
+        internal GameEndingRequest(string text, Color screenFillColor)
+        { this.text = text; this.screenFillColor = screenFillColor; gameOver = true; }
 
         internal static ConstructorInfo Constructor(Type type) => type?.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
             .Where(ctor => ctor.GetParameters().All(parameter => parameter.HasDefaultValue))
@@ -29,7 +34,8 @@ namespace LihuatLib.Endings
             settled = true;
             channel.Replay(() =>
             {
-                if (windowType == null) GameVictoryUtility.ShowCredits(text, song, true, delay);
+                if (gameOver) GenGameEnd.EndGameDialogMessage(text, false, screenFillColor);
+                else if (windowType == null) GameVictoryUtility.ShowCredits(text, song, true, delay);
                 else
                 {
                     if (window == null)
@@ -58,6 +64,8 @@ namespace LihuatLib.Endings
             Scribe_Values.Look(ref text, "text");
             Scribe_Defs.Look(ref song, "song");
             Scribe_Values.Look(ref delay, "delay");
+            Scribe_Values.Look(ref gameOver, "gameOver");
+            Scribe_Values.Look(ref screenFillColor, "screenFillColor");
         }
     }
 }
